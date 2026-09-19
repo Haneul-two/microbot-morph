@@ -27,7 +27,9 @@ void main() {
   vec3 s = texture2D(tScene, vUv).rgb;
   float lum = max(max(s.r, s.g), s.b);
   vec3 bright = s * smoothstep(uThreshold, uThreshold + 0.3, lum);
-  vec3 prev = texture2D(tPrev, vUv).rgb * uDecay;
+  // 곱하기만 하면 8비트 타깃에서 낮은 값이 반올림으로 제자리에 남아
+  // 잔상이 영영 사라지지 않는다. 한 계단씩 빼 줘야 바닥까지 내려간다.
+  vec3 prev = max(texture2D(tPrev, vUv).rgb * uDecay - 0.004, vec3(0.0));
   gl_FragColor = vec4(max(bright, prev), 1.0);
 }
 `;
@@ -90,7 +92,16 @@ export function createPostFX(renderer, width, height) {
   let rtScene, accA, accB;
 
   function makeTargets(w, h) {
-    const type = THREE.HalfFloatType;
+    // 반정밀도 텍스처를 **선형 샘플링**하려면 OES_texture_half_float_linear가
+    // 있어야 한다. 렌더링해 넣는 것(EXT_color_buffer_float)과는 별개다.
+    //
+    // 모바일 크롬에는 이 확장이 없는 경우가 있고, 없는데도 LinearFilter로
+    // 읽으면 결과가 정의되지 않아 화면이 검게 나온다. 데스크톱에는 대개
+    // 있어서 드러나지 않는다. 없으면 8비트로 떨어뜨린다 — 이 파이프라인은
+    // 값이 0~1을 넘지 않으므로 잃는 것이 없고 메모리도 절반이다.
+    const type = renderer.extensions.has("OES_texture_half_float_linear")
+      ? THREE.HalfFloatType
+      : THREE.UnsignedByteType;
     rtScene = new THREE.WebGLRenderTarget(w, h, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
@@ -113,6 +124,11 @@ export function createPostFX(renderer, width, height) {
   makeTargets(width, height);
 
   return {
+    // 진단용. 모바일에서 어떤 정밀도로 떨어졌는지 확인한다.
+    get textureType() {
+      return rtScene.texture.type === THREE.HalfFloatType ? "half" : "byte";
+    },
+
     // 타깃을 버리고 새로 만들지 않는다.
     //
     // 모바일은 주소창이 오르내릴 때마다 리사이즈를 쏘는데, 그때마다

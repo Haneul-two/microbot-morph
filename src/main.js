@@ -52,6 +52,11 @@ let lowQuality = false;
 // resize에서 실제 값으로 채운다.
 let projScale = 1000;
 
+// ?debug=1 진단. 기기에서 실제로 무슨 일이 일어나는지 수치로 본다.
+const DEBUG = new URLSearchParams(location.search).has("debug");
+const debugEl = document.getElementById("debug");
+let nRebuild = 0, nResize = 0, nCtxLost = 0;
+
 const ground = createGround();
 scene.add(ground.object);
 
@@ -101,6 +106,7 @@ const ui = createUI({
 });
 
 function buildWorld(startId, withIntro) {
+  nRebuild++;
   const form = formById(currentForm);
   const count = lowQuality ? form.low : form.high;
 
@@ -195,6 +201,7 @@ function resize() {
   // 모바일은 주소창이 오르내릴 때 같은 크기로도 리사이즈를 쏜다.
   if (w === lastW && h === lastH) return;
   lastW = w; lastH = h;
+  nResize++;
 
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
@@ -224,6 +231,7 @@ window.addEventListener("resize", resize);
 // 캔버스가 영영 검은 채로 남는다.
 canvas.addEventListener("webglcontextlost", (e) => {
   e.preventDefault();
+  nCtxLost++;
   console.warn("WebGL 컨텍스트 손실 — 복구 대기");
 });
 
@@ -337,6 +345,25 @@ function frame() {
     fpsShown = fpsFrames / fpsAccum;
     ui.setStats(shapeCount, fpsShown);
     fpsAccum = 0; fpsFrames = 0;
+
+    if (DEBUG) {
+      debugEl.hidden = false;
+      debugEl.textContent = [
+        "fps      " + Math.round(fpsShown),
+        "dpr      " + dpr + " (raw " + (window.devicePixelRatio || 1) + ")",
+        "css      " + lastW + "x" + lastH,
+        "buffer   " + Math.floor(lastW * dpr) + "x" + Math.floor(lastH * dpr),
+        "RT       " + (postfx ? postfx.textureType : "-"),
+        "particle " + shapeCount + (lowQuality ? " (low)" : ""),
+        "form     " + currentForm,
+        "rebuild  " + nRebuild,
+        "resize   " + nResize,
+        "ctxlost  " + nCtxLost,
+        "show     " + (show.running ? show.index + 1 + "/" + show.total : "off"),
+        "shape    " + morph.fromId + "->" + morph.toId + " " + Math.round(morph.progress * 100) + "%",
+        "cam      r" + camera.position.length().toFixed(1),
+      ].join("\n");
+    }
   }
 
   // 오프닝이 끝난 뒤 2.5초 평균이 40fps 미만이면 입자 수를 낮춘다.

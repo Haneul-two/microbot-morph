@@ -290,6 +290,26 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* ?debug=1 로 켜는 진단 표시. 모바일에서 무슨 일이 일어나는지
+     추측 대신 수치로 확인하려고 둔다. */
+  .debug {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    margin: 0;
+    padding: 8px 10px;
+    background: rgba(5, 7, 10, 0.82);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--rim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+    line-height: 1.5;
+    white-space: pre;
+    pointer-events: none;
+    z-index: 10;
+  }
+
   #fallback {
     position: fixed;
     inset: 0;
@@ -370,6 +390,8 @@
   <div class="hud-name" id="hudName">—</div>
   <div class="hud-meta"><span id="hudSize">—</span> · 격자 1칸 <span id="hudCell">—</span></div>
 </div>
+
+<pre class="debug" id="debug" hidden></pre>
 
 <div id="fallback">
   이 브라우저는 WebGL2를 지원하지 않아 입자를 그릴 수 없습니다.<br>
