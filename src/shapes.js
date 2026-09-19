@@ -455,8 +455,12 @@ export const SHAPE_LIST = [
   { id: "spikeball", label: "가시 구체", realSize: 9 },
   { id: "caring", label: "케어링", realSize: 4 },
   // 은하만 단위가 다르다. 미터로 적으면 읽을 수 없는 숫자가 된다.
-  { id: "galaxy", label: "은하", realSize: 100000, unit: "광년" },
+  // additive: 겹칠수록 밝아지게 그린다. 빽빽한 팽대부가 저절로 타오른다.
+  { id: "galaxy", label: "은하", realSize: 100000, unit: "광년", additive: true },
 ];
+
+export const isAdditive = (id) =>
+  Boolean(SHAPE_LIST.find((s) => s.id === id)?.additive);
 
 export const unitOf = (id) =>
   SHAPE_LIST.find((s) => s.id === id)?.unit ?? "m";

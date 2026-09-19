@@ -182,6 +182,9 @@ export function createChips(count, formId) {
       geometry.attributes.aDisp.needsUpdate = true;
     },
 
+    // 칩은 실제 입체라 가산으로 그리면 형태가 뭉개진다. 받기만 하고 무시한다.
+    setAdditive() {},
+
     dispose() {
       base.dispose();
       geometry.dispose();
