@@ -339,18 +339,38 @@ const GENERATORS = {
   spikeball: genSpikeBall,
 };
 
+// realSize: 이 형상이 "현실에서 몇 미터짜리인가". 월드 좌표를 바꾸지 않는다.
+//
+// 형상은 전부 반경 1.5로 정규화된 채로 두고, 옆에 세우는 사람 실루엣의
+// 크기만 이 값으로 정한다. 눈이 인지하는 건 절대 크기가 아니라 비율이라
+// 결과는 같으면서, 형상 크기에 물려 있는 상수들(부풀림·난류·입자 크기·
+// 커서 반경·카메라 거리)을 다시 잡지 않아도 된다.
 export const SHAPE_LIST = [
-  { id: "sphere", label: "구" },
-  { id: "torus", label: "토러스" },
-  { id: "knot", label: "토러스 매듭" },
-  { id: "stairs", label: "나선계단" },
-  { id: "bridge", label: "아치형 다리" },
-  { id: "dna", label: "DNA 이중나선" },
-  { id: "lattice", label: "큐브 격자" },
-  { id: "wave", label: "물결면" },
-  { id: "vortex", label: "회오리" },
-  { id: "spikeball", label: "가시 구체" },
+  { id: "sphere", label: "구", realSize: 6 },
+  { id: "torus", label: "토러스", realSize: 9 },
+  { id: "knot", label: "토러스 매듭", realSize: 7 },
+  { id: "stairs", label: "나선계단", realSize: 24 },
+  { id: "bridge", label: "아치형 다리", realSize: 40 },
+  { id: "dna", label: "DNA 이중나선", realSize: 16 },
+  { id: "lattice", label: "큐브 격자", realSize: 14 },
+  { id: "wave", label: "물결면", realSize: 30 },
+  { id: "vortex", label: "회오리", realSize: 26 },
+  { id: "spikeball", label: "가시 구체", realSize: 9 },
 ];
+
+// 정규화된 형상의 최대 지름. centerAndFit이 최대 반경을 FIT_RADIUS로
+// 맞추므로 가장 긴 축은 이 값에 가깝다.
+export const WORLD_SPAN = FIT_RADIUS * 2;
+
+// 바닥을 어디에 깔지 정하려면 형상의 바닥 높이가 필요하다.
+export function bottomOf(pos, count) {
+  let lo = Infinity;
+  for (let i = 0; i < count; i++) {
+    const y = pos[i * 3 + 1];
+    if (y < lo) lo = y;
+  }
+  return lo;
+}
 
 // 오프닝용 흩어진 구름. 갤러리에 넣지 않는다 — 사용자가 고를 형상이 아니라
 // 첫 조립의 출발점이다.

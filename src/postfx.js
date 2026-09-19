@@ -63,7 +63,9 @@ export function createPostFX(renderer, width, height) {
       tScene: { value: null },
       tPrev: { value: null },
       uDecay: { value: 0.945 },
-      uThreshold: { value: 0.18 },
+      // 바닥 격자가 잔상을 남기지 않을 만큼은 높아야 한다.
+      // 입자의 림라이트(0.8대)는 여유롭게 통과한다.
+      uThreshold: { value: 0.26 },
     },
     depthTest: false,
     depthWrite: false,

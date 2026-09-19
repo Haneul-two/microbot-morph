@@ -59,22 +59,29 @@ export function createMorph({
     notify();
   }
 
-  function notify() {
-    onUpdate?.({
+  function snapshot() {
+    return {
       currentId, fromId, toId, t, playing, queued, autoTour, mode,
       canScrub: fromId !== toId,
       transitioning: fromId !== toId && t < 1,
-    });
+    };
+  }
+
+  function notify() {
+    onUpdate?.(snapshot());
   }
 
   return {
     get currentId() { return currentId; },
+    get fromId() { return fromId; },
     get toId() { return toId; },
     get progress() { return t; },
     get playing() { return playing; },
     get autoTour() { return autoTour; },
     get mode() { return mode; },
     get intro() { return intro; },
+    // 바깥에서 UI를 다시 그릴 때 쓴다. notify가 보내는 것과 같은 내용이다.
+    state: snapshot,
     // 전이가 한 번이라도 걸려 있어야 스크럽할 대상이 있다.
     get canScrub() { return fromId !== toId; },
 

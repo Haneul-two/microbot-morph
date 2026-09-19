@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SHAPE_LIST, buildShape, buildScatter } from "./shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter, bottomOf, WORLD_SPAN } from "./shapes.js";
 import { createParticles } from "./particles.js";
 import { createChips } from "./chips.js";
 import { formById, DEFAULT_FORM } from "./forms.js";
@@ -8,6 +8,10 @@ import { createPostFX } from "./postfx.js";
 import { createControls, cursorRay } from "./controls.js";
 import { createPointerField } from "./pointer.js";
 import { createUI } from "./ui.js";
+import { createGround } from "./ground.js";
+import { createHuman } from "./human.js";
+import { presetFor } from "./cameraPresets.js";
+import { createShow } from "./show.js";
 
 const canvas = document.getElementById("gl");
 
@@ -49,6 +53,38 @@ let lowQuality = false;
 // resize에서 실제 값으로 채운다.
 let projScale = 1000;
 
+const ground = createGround();
+const human = createHuman();
+scene.add(ground.object);
+scene.add(human.object);
+
+// 형상 캐시를 buildWorld 바깥에 둔다. 바닥 높이를 정하려면 지금 렌더링하지
+// 않는 형상의 바닥도 미리 알아야 한다.
+let shapeCache = new Map();
+let bottomCache = new Map();
+
+function getShape(id) {
+  if (!shapeCache.has(id)) {
+    try {
+      shapeCache.set(id, buildShape(id, shapeCount));
+    } catch (err) {
+      // 형상 생성이 실패하면 현재 형상을 유지한다.
+      console.warn("형상 생성 실패:", id, err);
+      return shapeCache.get(morph?.currentId) ?? new Float32Array(shapeCount * 3);
+    }
+  }
+  return shapeCache.get(id);
+}
+
+function bottomFor(id) {
+  if (!bottomCache.has(id)) {
+    bottomCache.set(id, bottomOf(getShape(id), shapeCount));
+  }
+  return bottomCache.get(id);
+}
+
+const sizeOf = (id) => SHAPE_LIST.find((s) => s.id === id)?.realSize ?? 10;
+
 const ui = createUI({
   onShape: (id) => morph.request(id),
   onMode: (id) => morph.setMode(id),
@@ -56,6 +92,7 @@ const ui = createUI({
   onPlayToggle: () => morph.setPlaying(!morph.playing),
   onAutoTour: (v) => morph.setAutoTour(v),
   onCursorRadius: (v) => pointerField.setRadius(v),
+  onShowToggle: () => show.toggle(),
   onForm: (id) => {
     if (id === currentForm) return;
     currentForm = id;
@@ -74,19 +111,12 @@ function buildWorld(startId, withIntro) {
     particles.dispose();
   }
 
-  const cache = new Map();
-  const getShape = (id) => {
-    if (!cache.has(id)) {
-      try {
-        cache.set(id, buildShape(id, count));
-      } catch (err) {
-        // 형상 생성이 실패하면 현재 형상을 유지한다.
-        console.warn("형상 생성 실패:", id, err);
-        return cache.get(morph?.currentId) ?? new Float32Array(count * 3);
-      }
-    }
-    return cache.get(id);
-  };
+  // 입자 수가 바뀌면 캐시된 형상은 못 쓴다.
+  if (shapeCount !== count) {
+    shapeCache = new Map();
+    bottomCache = new Map();
+    shapeCount = count;
+  }
 
   particles = form.kind === "chips"
     ? createChips(count, form.id)
@@ -108,11 +138,10 @@ function buildWorld(startId, withIntro) {
     mode: morph?.mode,
     autoTour: morph?.autoTour,
     introFrom: withIntro ? buildScatter(count) : null,
-    onUpdate: (s) => ui.sync(Object.assign(s, { form: currentForm })),
+    onUpdate: (s) => ui.sync(decorate(s)),
   });
 
-  shapeCount = count;
-  ui.sync({
+  ui.sync(decorate({
     currentId: morph.currentId,
     fromId: morph.currentId,
     toId: morph.currentId,
@@ -121,16 +150,28 @@ function buildWorld(startId, withIntro) {
     queued: null,
     autoTour: morph.autoTour,
     mode: morph.mode,
-    form: currentForm,
     canScrub: false,
+  }));
+}
+
+// morph는 형상 id만 안다. 모양·크기·쇼 상태는 여기서 붙인다.
+function decorate(s) {
+  return Object.assign(s, {
+    form: currentForm,
+    realSize: sizeOf(s.toId),
+    showRunning: show ? show.running : false,
   });
 }
 
 const INTRO_FAR = 10.2;   // 오프닝 시작 거리
 const INTRO_NEAR = 6.3;   // 조립이 끝났을 때 거리
 
+let show = null;
+
 buildWorld(shapeIds[0], true);
 if (morph.intro) controls.setDistance(INTRO_FAR, true);
+
+show = createShow({ morph, onChange: () => ui.sync(decorate(morph.state())) });
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -173,6 +214,16 @@ const clock = new THREE.Clock();
 let fpsAccum = 0, fpsFrames = 0, fpsShown = 0;
 let probeTime = 0, probeFrames = 0, probeDone = false;
 let introDolly = false;
+// 어느 형상에 맞춰 카메라를 세워뒀는지. 형상이 바뀔 때만 앵글을 옮긴다.
+let posedFor = null;
+
+// 사람이 서는 자리. 카메라에서 본 방위 기준으로 형상 옆쪽이다.
+//
+// 월드 좌표에 고정하면 카메라 앵글에 따라 렌즈 바로 앞에 놓여 원근으로
+// 거대해지고 화면 밖으로 잘린다. 기준물은 형상과 같은 깊이에 있어야
+// 크기 비교가 성립한다.
+const HUMAN_ANGLE = 1.25;   // 카메라 방위에서 옆으로 벌린 각(rad)
+const HUMAN_DIST = 2.2;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -190,8 +241,42 @@ function frame() {
     controls.setDistance(INTRO_NEAR);
   }
 
+  show.update(dt);
+
+  // --- 자동 카메라 ---------------------------------------------------------
+  // 사용자가 최근에 카메라를 만졌으면 손대지 않는다. 오프닝 중에도 비운다
+  // (돌리 인이 거리를 직접 몰고 있다).
+  const autoCam = !morph.intro && !controls.userRecently(8);
+  if (autoCam) {
+    const preset = presetFor(morph.toId);
+    if (posedFor !== morph.toId) {
+      controls.setPose(preset.theta, preset.phi, preset.radius);
+      posedFor = morph.toId;
+    }
+    // 쇼에서는 비행 구간에 카메라가 입자 떼 쪽으로 밀고 들어갔다 빠진다.
+    if (show.running && morph.progress < 1) {
+      const u = Math.min(1, Math.max(0, (morph.progress - 0.12) / 0.72));
+      // 너무 깊이 들어가면 입자가 화면을 덮어 형상이 사라진다.
+      // 스쳐 지나가는 정도까지만.
+      controls.setDistance(preset.radius * (1 - 0.35 * Math.sin(Math.PI * u)));
+    }
+  }
+
   controls.update(dt);
   morph.update(dt);
+
+  // --- 바닥과 기준점 -------------------------------------------------------
+  // 전이 중에는 두 형상의 바닥 중 낮은 쪽에 맞춘다. 올라가는 쪽으로 먼저
+  // 따라가면 도착 형상이 바닥을 뚫고 내려간 것처럼 보인다.
+  ground.setTargetY(Math.min(bottomFor(morph.fromId), bottomFor(morph.toId)) - 0.04);
+  ground.update(dt);
+  controls.setFloor(ground.object.position.y);
+  human.setGroundY(ground.object.position.y);
+  human.setScaleFor(sizeOf(morph.toId), WORLD_SPAN);
+  const ha = controls.theta + HUMAN_ANGLE;
+  human.place(Math.sin(ha) * HUMAN_DIST, Math.cos(ha) * HUMAN_DIST);
+  human.update(dt);
+
   particles.material.uniforms.uTime.value += dt;
   particles.material.uniforms.uCamDist.value = camera.position.length();
 

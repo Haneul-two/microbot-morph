@@ -15,17 +15,36 @@ export function createControls(camera, dom) {
   let motion = 0;
 
   const MIN_PHI = 0.16, MAX_PHI = Math.PI - 0.16;
-  const MIN_R = 2.4, MAX_R = 12;
+  // 쇼의 접근 연출이 입자 떼 가장자리까지 들어가려면 형상 반경(1.5)에
+  // 가까운 곳까지 허용해야 한다.
+  const MIN_R = 1.8, MAX_R = 12;
+
+  // 카메라가 바닥 아래로 내려가면 바닥면을 뒤에서 보게 되어 통째로 사라진다.
+  // 올려다보는 구도는 살리되 지면 위에는 남아 있어야 한다.
+  let floorY = -Infinity;
+  const FLOOR_MARGIN = 0.35;
+
+  function phiCeiling(r) {
+    if (!isFinite(floorY)) return MAX_PHI;
+    const c = (floorY + FLOOR_MARGIN) / Math.max(r, 0.001);
+    return Math.min(MAX_PHI, Math.acos(Math.min(1, Math.max(-1, c))));
+  }
+
+  // 사용자가 마지막으로 카메라를 직접 만진 시각. 자동 카메라가 사람의
+  // 조작을 덮어쓰지 않게 하려고 기록한다.
+  let userAt = -1e9;
 
   function rotateBy(dx, dy) {
     tTheta -= dx * 0.005;
     tPhi = Math.min(MAX_PHI, Math.max(MIN_PHI, tPhi - dy * 0.005));
     motion = 1;
+    userAt = performance.now();
   }
 
   function zoomBy(f) {
     tRadius = Math.min(MAX_R, Math.max(MIN_R, tRadius * f));
     motion = 1;
+    userAt = performance.now();
   }
 
   dom.addEventListener("pointerdown", (e) => {
@@ -76,11 +95,34 @@ export function createControls(camera, dom) {
       if (snap) radius = tRadius;
     },
 
+    // 형상별 연출 앵글. 같은 구조도 밑에서 올려다보면 달라 보인다.
+    setPose(theta, phi, r) {
+      // theta는 한 바퀴 돌아 가까운 쪽으로 간다. 안 그러면 먼 길로 휘돈다.
+      let d = theta - tTheta;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      tTheta += d;
+      tPhi = Math.min(MAX_PHI, Math.max(MIN_PHI, phi));
+      tRadius = Math.min(MAX_R, Math.max(MIN_R, r));
+    },
+
+    // 최근 seconds초 안에 사용자가 카메라를 직접 만졌는가.
+    userRecently(seconds) {
+      return performance.now() - userAt < seconds * 1000;
+    },
+
+    setFloor(y) { floorY = y; },
+
     update(dt) {
       const k = 1 - Math.pow(0.001, dt);
       theta += (tTheta - theta) * k;
       phi += (tPhi - phi) * k;
       radius += (tRadius - radius) * k;
+
+      // 목표값까지 같이 눌러야 감쇠가 천장과 계속 싸우지 않는다.
+      const ceil = phiCeiling(radius);
+      if (tPhi > ceil) tPhi = ceil;
+      if (phi > ceil) phi = ceil;
 
       const sp = Math.sin(phi);
       camera.position.set(
@@ -93,6 +135,7 @@ export function createControls(camera, dom) {
     },
     // 0이면 정지, 1이면 방금 움직였다.
     get motion() { return motion; },
+    get theta() { return theta; },
   };
 }
 

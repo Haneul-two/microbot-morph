@@ -79,6 +79,27 @@
     text-transform: uppercase;
   }
 
+  .show-btn {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 9px 10px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: rgba(255, 122, 51, 0.14);
+    border-color: rgba(255, 122, 51, 0.45);
+    color: #ffd2b8;
+  }
+
+  .show-btn:hover { background: rgba(255, 122, 51, 0.22); }
+
+  .show-btn.running {
+    background: rgba(159, 182, 210, 0.1);
+    border-color: rgba(159, 182, 210, 0.4);
+    color: var(--rim);
+  }
+
   .shapes {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -256,6 +277,8 @@
   <h1 class="title">마이크로봇 형상 변환</h1>
   <p class="sub">입자 하나하나가 흩어졌다가 다음 형상의 제 자리를 찾아간다.</p>
 
+  <button id="showBtn" class="show-btn">▶ 쇼 시작</button>
+
   <p class="label">형상</p>
   <div class="shapes" id="shapes"></div>
 
@@ -287,6 +310,7 @@
   </div>
 
   <div class="stats">
+    <span id="statSize">—</span>
     <span id="statCount">—</span>
     <span id="statFps">— fps</span>
   </div>

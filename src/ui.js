@@ -18,6 +18,10 @@ export function createUI(handlers) {
   const cursorRadiusValueEl = document.getElementById("cursorRadiusValue");
   const statCountEl = document.getElementById("statCount");
   const statFpsEl = document.getElementById("statFps");
+  const statSizeEl = document.getElementById("statSize");
+  const showBtnEl = document.getElementById("showBtn");
+
+  showBtnEl.addEventListener("click", () => handlers.onShowToggle());
 
   const shapeButtons = new Map();
   for (const s of SHAPE_LIST) {
@@ -95,6 +99,12 @@ export function createUI(handlers) {
         ? labelOf(state.fromId) + " → " + labelOf(state.toId)
         : labelOf(state.currentId);
       autoTourEl.checked = state.autoTour;
+
+      // 크기 표시가 이 프로젝트에서 스케일을 말로 확인시켜 주는 유일한 곳이다.
+      statSizeEl.textContent = state.realSize ? state.realSize + " m" : "—";
+
+      showBtnEl.textContent = state.showRunning ? "■ 쇼 정지" : "▶ 쇼 시작";
+      showBtnEl.classList.toggle("running", Boolean(state.showRunning));
     },
 
     // 입자 시스템을 다시 만들어도 슬라이더에 표시된 값이 그대로 적용되도록

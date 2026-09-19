@@ -45,8 +45,10 @@ void main() {
   vTint = 0.72 + aSeed.z * 0.55;
 
   // uSize는 월드 단위 지름이다. 원근에 따라 자연스럽게 작아진다.
+  // 상한이 헐거우면 카메라가 가까이 붙었을 때 입자가 거대한 방울이 되어
+  // 화면을 덮고 형상이 사라진다. 평소 크기는 2~6px이라 상한이 낮아도 손해가 없다.
   float px = uSize * (1.0 + vSpeed * 0.8) * uProjScale / max(-mv.z, 0.1);
-  gl_PointSize = clamp(px, 1.0, 24.0);
+  gl_PointSize = clamp(px, 1.0, 12.0);
 }
 `;
 
