@@ -245,6 +245,48 @@
 
   .hint b { color: var(--rim); font-weight: 500; }
 
+  /* 쇼가 도는 동안에는 패널을 접어 쇼 버튼만 남긴다.
+     화면이 비워지는 것 자체가 "지금은 쇼다"라는 신호가 된다. */
+  .panel.collapsed > *:not(#showBtn) { display: none; }
+  .panel.collapsed { width: 168px; padding: 12px; }
+  .panel.collapsed #showBtn { margin-bottom: 0; }
+
+  /* 자막이 입자 위에 겹치면 읽히지 않는다. 화면 아래를 덮는 스크림을
+     깔아 영화 자막처럼 띄운다. */
+  .show-hud {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 72px 0 28px;
+    text-align: center;
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(5, 7, 10, 0.94), rgba(5, 7, 10, 0));
+  }
+
+  .hud-beat {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--hot);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+  }
+
+  .hud-name {
+    font-size: 30px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  .hud-meta {
+    margin-top: 7px;
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
   #fallback {
     position: fixed;
     inset: 0;
@@ -316,8 +358,14 @@
   </div>
 </div>
 
-<div class="hint">
+<div class="hint" id="hint">
   <b>드래그</b> 회전 · <b>휠</b> 줌 · <b>커서</b>로 입자 밀어내기
+</div>
+
+<div class="show-hud" id="showHud" hidden>
+  <div class="hud-beat"><span id="hudIndex">1</span> / <span id="hudTotal">10</span></div>
+  <div class="hud-name" id="hudName">—</div>
+  <div class="hud-meta"><span id="hudSize">—</span> · 격자 1칸 <span id="hudCell">—</span></div>
 </div>
 
 <div id="fallback">

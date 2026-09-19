@@ -106,6 +106,9 @@ export function createControls(camera, dom) {
       tRadius = Math.min(MAX_R, Math.max(MIN_R, r));
     },
 
+    // 쇼가 형상을 보여주는 동안 천천히 도는 공전. 사용자 조작으로 치지 않는다.
+    orbit(dTheta) { tTheta += dTheta; },
+
     // 최근 seconds초 안에 사용자가 카메라를 직접 만졌는가.
     userRecently(seconds) {
       return performance.now() - userAt < seconds * 1000;

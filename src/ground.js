@@ -55,6 +55,27 @@ void main() {
 }
 `;
 
+// 격자 한 칸이 실제 몇 미터인가를 고른다.
+//
+// 사람 실루엣을 뺀 뒤로 이 격자가 유일한 크기 기준이다. 칸이 항상 같은
+// 월드 크기면 아무것도 알려주지 않으므로, 형상의 realSize에 맞춰 "깔끔한"
+// 미터 값(1·2·5·10·20)을 고르고 그 값을 화면에 적는다.
+//
+// 월드 크기가 0.35~1.2 밖으로 나가면 격자가 뭉개지거나 너무 성겨진다.
+const NICE_METERS = [1, 2, 5, 10, 20, 50];
+
+export function pickCell(realSizeMeters, worldSpan) {
+  let best = NICE_METERS[0];
+  let bestErr = Infinity;
+  for (const m of NICE_METERS) {
+    const world = (m / realSizeMeters) * worldSpan;
+    if (world < 0.3 || world > 1.3) continue;
+    const err = Math.abs(world - 0.55);
+    if (err < bestErr) { bestErr = err; best = m; }
+  }
+  return { meters: best, world: (best / realSizeMeters) * worldSpan };
+}
+
 export function createGround() {
   const geometry = new THREE.PlaneGeometry(260, 260);
   geometry.rotateX(-Math.PI / 2);
@@ -80,6 +101,7 @@ export function createGround() {
   object.position.y = -1.6;
 
   let targetY = -1.6;
+  let targetCell = 0.6;
 
   return {
     object,
@@ -88,9 +110,13 @@ export function createGround() {
     // 형상마다 바닥 높이가 다르므로 목표만 정해두고 부드럽게 따라간다.
     setTargetY(y) { targetY = y; },
 
+    setCell(world) { targetCell = world; },
+
     update(dt) {
       const k = 1 - Math.pow(0.02, dt);
       object.position.y += (targetY - object.position.y) * k;
+      const u = material.uniforms.uCell;
+      u.value += (targetCell - u.value) * k;
     },
 
     dispose() {

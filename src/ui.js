@@ -20,6 +20,14 @@ export function createUI(handlers) {
   const statFpsEl = document.getElementById("statFps");
   const statSizeEl = document.getElementById("statSize");
   const showBtnEl = document.getElementById("showBtn");
+  const panelEl = document.getElementById("panel");
+  const hintEl = document.getElementById("hint");
+  const hudEl = document.getElementById("showHud");
+  const hudIndexEl = document.getElementById("hudIndex");
+  const hudTotalEl = document.getElementById("hudTotal");
+  const hudNameEl = document.getElementById("hudName");
+  const hudSizeEl = document.getElementById("hudSize");
+  const hudCellEl = document.getElementById("hudCell");
 
   showBtnEl.addEventListener("click", () => handlers.onShowToggle());
 
@@ -105,6 +113,19 @@ export function createUI(handlers) {
 
       showBtnEl.textContent = state.showRunning ? "■ 쇼 정지" : "▶ 쇼 시작";
       showBtnEl.classList.toggle("running", Boolean(state.showRunning));
+
+      // 쇼 중에는 패널을 접고 화면 아래에 큰 자막을 띄운다.
+      const running = Boolean(state.showRunning);
+      panelEl.classList.toggle("collapsed", running);
+      hintEl.hidden = running;
+      hudEl.hidden = !running;
+      if (running) {
+        hudIndexEl.textContent = String((state.showIndex ?? 0) + 1);
+        hudTotalEl.textContent = String(state.showTotal ?? 0);
+        hudNameEl.textContent = labelOf(state.toId);
+        hudSizeEl.textContent = (state.realSize ?? "—") + " m";
+        hudCellEl.textContent = (state.cellMeters ?? "—") + " m";
+      }
     },
 
     // 입자 시스템을 다시 만들어도 슬라이더에 표시된 값이 그대로 적용되도록

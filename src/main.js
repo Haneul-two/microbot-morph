@@ -8,8 +8,7 @@ import { createPostFX } from "./postfx.js";
 import { createControls, cursorRay } from "./controls.js";
 import { createPointerField } from "./pointer.js";
 import { createUI } from "./ui.js";
-import { createGround } from "./ground.js";
-import { createHuman } from "./human.js";
+import { createGround, pickCell } from "./ground.js";
 import { presetFor } from "./cameraPresets.js";
 import { createShow } from "./show.js";
 
@@ -54,9 +53,7 @@ let lowQuality = false;
 let projScale = 1000;
 
 const ground = createGround();
-const human = createHuman();
 scene.add(ground.object);
-scene.add(human.object);
 
 // 형상 캐시를 buildWorld 바깥에 둔다. 바닥 높이를 정하려면 지금 렌더링하지
 // 않는 형상의 바닥도 미리 알아야 한다.
@@ -84,6 +81,7 @@ function bottomFor(id) {
 }
 
 const sizeOf = (id) => SHAPE_LIST.find((s) => s.id === id)?.realSize ?? 10;
+const cellFor = (id) => pickCell(sizeOf(id), WORLD_SPAN);
 
 const ui = createUI({
   onShape: (id) => morph.request(id),
@@ -159,7 +157,10 @@ function decorate(s) {
   return Object.assign(s, {
     form: currentForm,
     realSize: sizeOf(s.toId),
+    cellMeters: cellFor(s.toId).meters,
     showRunning: show ? show.running : false,
+    showIndex: show ? show.index : 0,
+    showTotal: show ? show.total : 0,
   });
 }
 
@@ -217,13 +218,6 @@ let introDolly = false;
 // 어느 형상에 맞춰 카메라를 세워뒀는지. 형상이 바뀔 때만 앵글을 옮긴다.
 let posedFor = null;
 
-// 사람이 서는 자리. 카메라에서 본 방위 기준으로 형상 옆쪽이다.
-//
-// 월드 좌표에 고정하면 카메라 앵글에 따라 렌즈 바로 앞에 놓여 원근으로
-// 거대해지고 화면 밖으로 잘린다. 기준물은 형상과 같은 깊이에 있어야
-// 크기 비교가 성립한다.
-const HUMAN_ANGLE = 1.25;   // 카메라 방위에서 옆으로 벌린 각(rad)
-const HUMAN_DIST = 2.2;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -253,12 +247,18 @@ function frame() {
       controls.setPose(preset.theta, preset.phi, preset.radius);
       posedFor = morph.toId;
     }
-    // 쇼에서는 비행 구간에 카메라가 입자 떼 쪽으로 밀고 들어갔다 빠진다.
-    if (show.running && morph.progress < 1) {
-      const u = Math.min(1, Math.max(0, (morph.progress - 0.12) / 0.72));
-      // 너무 깊이 들어가면 입자가 화면을 덮어 형상이 사라진다.
-      // 스쳐 지나가는 정도까지만.
-      controls.setDistance(preset.radius * (1 - 0.35 * Math.sin(Math.PI * u)));
+    if (show.running) {
+      if (morph.progress < 1) {
+        // 비행 구간에는 카메라가 입자 떼 쪽으로 밀고 들어갔다 빠진다.
+        // 너무 깊이 들어가면 입자가 화면을 덮어 형상이 사라진다.
+        const u = Math.min(1, Math.max(0, (morph.progress - 0.12) / 0.72));
+        // 비행 중에는 입자가 형상 반경 밖으로 부풀기 때문에, 정착 거리
+        // 기준으로 재면 생각보다 훨씬 가까워진다. 18%면 충분히 다가온다.
+        controls.setDistance(preset.radius * (1 - 0.18 * Math.sin(Math.PI * u)));
+      } else {
+        // 형상을 보여주는 동안에는 천천히 돈다. 정지 화면과 확실히 다르다.
+        controls.orbit(dt * 0.16);
+      }
     }
   }
 
@@ -269,13 +269,9 @@ function frame() {
   // 전이 중에는 두 형상의 바닥 중 낮은 쪽에 맞춘다. 올라가는 쪽으로 먼저
   // 따라가면 도착 형상이 바닥을 뚫고 내려간 것처럼 보인다.
   ground.setTargetY(Math.min(bottomFor(morph.fromId), bottomFor(morph.toId)) - 0.04);
+  ground.setCell(cellFor(morph.toId).world);
   ground.update(dt);
   controls.setFloor(ground.object.position.y);
-  human.setGroundY(ground.object.position.y);
-  human.setScaleFor(sizeOf(morph.toId), WORLD_SPAN);
-  const ha = controls.theta + HUMAN_ANGLE;
-  human.place(Math.sin(ha) * HUMAN_DIST, Math.cos(ha) * HUMAN_DIST);
-  human.update(dt);
 
   particles.material.uniforms.uTime.value += dt;
   particles.material.uniforms.uCamDist.value = camera.position.length();

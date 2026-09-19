@@ -60,6 +60,9 @@ export function createShow({ morph, onChange }) {
 
       dwell = 0;
       index = (index + 1) % SHOW_ORDER.length;
+      // 비트마다 변형 방식을 번갈아 쓴다. 같은 연출이 열 번 반복되면
+      // 순서만 다른 자동 순회와 구분이 안 된다.
+      morph.setMode(index % 2 === 0 ? "flock" : "assemble");
       morph.request(SHOW_ORDER[index]);
       onChange?.();
     },
