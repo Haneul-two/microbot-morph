@@ -4,6 +4,8 @@
 // 불변 규칙: 모든 형상은 정확히 같은 개수의 점을 반환한다.
 // 입자 i가 형상 A의 i번째 자리에서 형상 B의 i번째 자리로 1:1 대응되어야 한다.
 
+import { MASK_W, MASK_H, isInk } from "./caringMask.js";
+
 const TAU = Math.PI * 2;
 
 export const FIT_RADIUS = 1.5;
@@ -324,6 +326,99 @@ function genSpikeBall(pos, n, rnd) {
   }
 }
 
+// 표준정규분포 하나. 별 분포는 균등 난수로는 안 나온다.
+function gaussian(rnd) {
+  let u = 0, v = 0;
+  while (u === 0) u = rnd();
+  while (v === 0) v = rnd();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
+}
+
+// 정면나선은하.
+//
+// 실제 은하의 네 성분을 그대로 쌓는다: 팽대부, 나선 팔, 원반의 흩어진 별,
+// 헤일로. 팔은 로그 나선 r = R0·e^(B·θ)를 따른다 — 실제 grand-design
+// 나선은하의 피치각(12~20도)이 이 식에서 나온다.
+function genGalaxy(pos, n, rnd) {
+  const ARMS = 2;
+  const B = 0.23;          // 작을수록 촘촘히 감긴다. 0.23이면 피치각 약 13도
+  const R0 = 0.16;         // 팔이 풀려 나오기 시작하는 반경
+  const RMAX = 1.5;
+  const THETA_MAX = Math.log(RMAX / R0) / B;   // 약 1.55바퀴
+
+  for (let i = 0; i < n; i++) {
+    const roll = rnd();
+
+    if (roll < 0.18) {
+      // 팽대부. 중심으로 갈수록 급격히 빽빽하고 위아래로 눌려 있다.
+      const r = 0.30 * Math.pow(rnd(), 2.2);
+      const a = rnd() * TAU;
+      const cz = Math.acos(rnd() * 2 - 1);
+      const s = Math.sin(cz);
+      setP(pos, i, r * s * Math.cos(a), r * Math.cos(cz) * 0.55, r * s * Math.sin(a));
+    } else if (roll < 0.84) {
+      // 나선 팔. 전체의 2/3를 여기 몰아야 팔이 드러난다 — 입자 밝기가
+      // 다 같아서 구조를 읽을 단서가 밀도뿐이다.
+      const arm = Math.floor(rnd() * ARMS);
+      const t = Math.pow(rnd(), 0.55);
+      const theta = t * THETA_MAX;
+      const r = R0 * Math.exp(B * theta);
+      const a = theta + (arm / ARMS) * TAU;
+
+      // 팔은 바깥으로 갈수록 두꺼워지지만, 넓게 퍼지면 원반과 구분이 안 된다.
+      let spread = 0.022 + 0.05 * (r / RMAX);
+      // 성운 덩어리. 일부는 훨씬 좁게 뭉쳐 팔 위에 밝은 매듭을 만든다.
+      if (rnd() < 0.35) spread *= 0.28;
+
+      const rr = r + gaussian(rnd) * spread;
+      const aa = a + (gaussian(rnd) * spread) / Math.max(r, 0.2);
+      setP(pos, i,
+        rr * Math.cos(aa),
+        gaussian(rnd) * (0.016 + 0.012 * (1 - r / RMAX)),
+        rr * Math.sin(aa));
+    } else if (roll < 0.96) {
+      // 원반에 흩어진 별. 비중이 높으면 팔 사이를 메워 나선이 사라진다.
+      const r = RMAX * Math.pow(rnd(), 0.55);
+      const a = rnd() * TAU;
+      setP(pos, i,
+        r * Math.cos(a),
+        gaussian(rnd) * (0.02 + 0.03 * Math.exp(-r * 2.2)),
+        r * Math.sin(a));
+    } else {
+      // 헤일로. 원반 밖으로 드물게 흩뿌려진 별.
+      const r = 0.5 + rnd() * 0.95;
+      const a = rnd() * TAU;
+      const cz = Math.acos(rnd() * 2 - 1);
+      const s = Math.sin(cz);
+      setP(pos, i, r * s * Math.cos(a), r * Math.cos(cz) * 0.5, r * s * Math.sin(a));
+    }
+  }
+}
+
+// 케어링 로고 마크. 구워둔 실루엣 마스크 안을 고르게 채운다.
+function genCaring(pos, n, rnd) {
+  const ink = [];
+  for (let gy = 0; gy < MASK_H; gy++) {
+    for (let gx = 0; gx < MASK_W; gx++) {
+      if (isInk(gx, gy)) ink.push(gy * MASK_W + gx);
+    }
+  }
+
+  const s = 2 / MASK_W;
+  const cx = MASK_W / 2, cy = MASK_H / 2;
+  const thickness = 0.13;   // 납작한 판은 옆에서 보면 사라진다
+
+  for (let i = 0; i < n; i++) {
+    const cell = ink[Math.floor(rnd() * ink.length)];
+    const gx = cell % MASK_W;
+    const gy = (cell / MASK_W) | 0;
+    setP(pos, i,
+      (gx + rnd() - cx) * s,
+      -(gy + rnd() - cy) * s,
+      (rnd() - 0.5) * thickness);
+  }
+}
+
 // --- 공개 API --------------------------------------------------------------
 
 const GENERATORS = {
@@ -337,6 +432,8 @@ const GENERATORS = {
   wave: genWave,
   vortex: genVortex,
   spikeball: genSpikeBall,
+  galaxy: genGalaxy,
+  caring: genCaring,
 };
 
 // realSize: 이 형상이 "현실에서 몇 미터짜리인가". 월드 좌표를 바꾸지 않는다.
@@ -356,7 +453,13 @@ export const SHAPE_LIST = [
   { id: "wave", label: "물결면", realSize: 30 },
   { id: "vortex", label: "회오리", realSize: 26 },
   { id: "spikeball", label: "가시 구체", realSize: 9 },
+  { id: "caring", label: "케어링", realSize: 4 },
+  // 은하만 단위가 다르다. 미터로 적으면 읽을 수 없는 숫자가 된다.
+  { id: "galaxy", label: "은하", realSize: 100000, unit: "광년" },
 ];
+
+export const unitOf = (id) =>
+  SHAPE_LIST.find((s) => s.id === id)?.unit ?? "m";
 
 // 정규화된 형상의 최대 지름. centerAndFit이 최대 반경을 FIT_RADIUS로
 // 맞추므로 가장 긴 축은 이 값에 가깝다.

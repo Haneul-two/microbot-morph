@@ -109,7 +109,8 @@ export function createUI(handlers) {
       autoTourEl.checked = state.autoTour;
 
       // 크기 표시가 이 프로젝트에서 스케일을 말로 확인시켜 주는 유일한 곳이다.
-      statSizeEl.textContent = state.realSize ? state.realSize + " m" : "—";
+      const unit = state.unit || "m";
+      statSizeEl.textContent = state.realSize ? state.realSize + " " + unit : "—";
 
       showBtnEl.textContent = state.showRunning ? "■ 쇼 정지" : "▶ 쇼 시작";
       showBtnEl.classList.toggle("running", Boolean(state.showRunning));
@@ -123,8 +124,8 @@ export function createUI(handlers) {
         hudIndexEl.textContent = String((state.showIndex ?? 0) + 1);
         hudTotalEl.textContent = String(state.showTotal ?? 0);
         hudNameEl.textContent = labelOf(state.toId);
-        hudSizeEl.textContent = (state.realSize ?? "—") + " m";
-        hudCellEl.textContent = (state.cellMeters ?? "—") + " m";
+        hudSizeEl.textContent = (state.realSize ?? "—") + " " + unit;
+        hudCellEl.textContent = (state.cellMeters ?? "—") + " " + unit;
       }
     },
 

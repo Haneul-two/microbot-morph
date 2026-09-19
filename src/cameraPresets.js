@@ -20,6 +20,11 @@ const PRESETS = {
   wave: { theta: 1.1, phi: 1.30, radius: 6.6 },
   vortex: { theta: 0.7, phi: 1.68, radius: 6.2 },     // 깔때기 아래에서
   spikeball: { theta: 1.4, phi: 1.30, radius: 5.7 },
+  // 은하는 나선이 보이려면 위에서 내려다봐야 한다. 완전한 수직은
+  // 원반의 두께가 사라져 평면 그림이 되므로 조금 눕힌다.
+  galaxy: { theta: 0.4, phi: 0.62, radius: 6.4 },
+  // 로고는 XY 평면에 서 있다. theta 0이 정면이다.
+  caring: { theta: 0.0, phi: 1.34, radius: 5.5 },
 };
 
 export function presetFor(shapeId) {

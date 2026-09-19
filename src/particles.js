@@ -41,13 +41,16 @@ void main() {
   // 이게 없으면 구가 평평한 원반이 된다.
   vFog = clamp((-mv.z - (uCamDist - 1.65)) / 3.3, 0.0, 1.0);
 
-  // 입자마다 미세한 밝기 차. 고른 노이즈로 보이는 것을 막는다.
-  vTint = 0.72 + aSeed.z * 0.55;
+  // 크기와 밝기를 같은 시드에 묶는다. 큰 입자가 더 밝아야 "별"로 읽힌다.
+  // 전부 같은 크기면 아무리 배치를 잘해도 먼지처럼 보인다.
+  float grade = aSeed.z;
+  vTint = 0.5 + grade * 0.95;
 
   // uSize는 월드 단위 지름이다. 원근에 따라 자연스럽게 작아진다.
   // 상한이 헐거우면 카메라가 가까이 붙었을 때 입자가 거대한 방울이 되어
   // 화면을 덮고 형상이 사라진다. 평소 크기는 2~6px이라 상한이 낮아도 손해가 없다.
-  float px = uSize * (1.0 + vSpeed * 0.8) * uProjScale / max(-mv.z, 0.1);
+  float px = uSize * (0.62 + grade * 1.3) * (1.0 + vSpeed * 0.8)
+             * uProjScale / max(-mv.z, 0.1);
   gl_PointSize = clamp(px, 1.0, 12.0);
 }
 `;

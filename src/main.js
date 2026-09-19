@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SHAPE_LIST, buildShape, buildScatter, bottomOf, WORLD_SPAN } from "./shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter, bottomOf, WORLD_SPAN, unitOf } from "./shapes.js";
 import { createParticles } from "./particles.js";
 import { createChips } from "./chips.js";
 import { formById, DEFAULT_FORM } from "./forms.js";
@@ -156,7 +156,8 @@ function buildWorld(startId, withIntro) {
 function decorate(s) {
   return Object.assign(s, {
     form: currentForm,
-    realSize: sizeOf(s.toId),
+    realSize: sizeOf(s.toId).toLocaleString("ko-KR"),
+    unit: unitOf(s.toId),
     cellMeters: cellFor(s.toId).meters,
     showRunning: show ? show.running : false,
     showIndex: show ? show.index : 0,
