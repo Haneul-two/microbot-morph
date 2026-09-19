@@ -42,6 +42,7 @@ python -m http.server 8765
 ```
 index.html        importmap, 캔버스, UI 마크업
 src/shapes.js     형상 생성기 (순수 함수, three.js 비의존)
+src/masks.js      이미지에서 구운 실루엣 마스크 (외부 파일 없음)
 src/delayModes.js 군집 비행 / 조립식 시차 함수
 src/pathGlsl.js   궤적 수식 (두 렌더러가 공유)
 src/ground.js     격자 바닥, 지평선, 접지 그림자 — 크기 기준

@@ -23,8 +23,13 @@ const PRESETS = {
   // 은하는 나선이 보이려면 위에서 내려다봐야 한다. 완전한 수직은
   // 원반의 두께가 사라져 평면 그림이 되므로 조금 눕힌다.
   galaxy: { theta: 0.4, phi: 0.62, radius: 6.4 },
-  // 로고는 XY 평면에 서 있다. theta 0이 정면이다.
+  // 마스크 형상은 XY 평면에 서 있다. theta 0이 정면이다.
   caring: { theta: 0.0, phi: 1.34, radius: 5.5 },
+  hand: { theta: 0.0, phi: 1.30, radius: 5.5 },
+  butterfly: { theta: 0.0, phi: 1.20, radius: 5.6 },
+  palace: { theta: 0.12, phi: 1.44, radius: 6.4 },
+  eiffel: { theta: 0.45, phi: 1.60, radius: 6.1 },   // 탑은 올려다본다
+  earth: { theta: 0.25, phi: 1.12, radius: 6.0 },
 };
 
 export function presetFor(shapeId) {

@@ -12,9 +12,9 @@
 // 그 중복이 버그의 원인이 된다. 사용자가 입자를 만지는 순간은 대개
 // 형상이 정착한 상태라 실질적 차이가 없다.
 
-export const RADIUS_MIN = 0.08;
+export const RADIUS_MIN = 0.03;
 export const RADIUS_MAX = 0.75;
-export const RADIUS_DEFAULT = 0.22;
+export const RADIUS_DEFAULT = 0.06;
 
 const STRENGTH = 4.5;
 

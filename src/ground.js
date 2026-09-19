@@ -64,7 +64,7 @@ void main() {
 // 월드 크기가 0.35~1.2 밖으로 나가면 격자가 뭉개지거나 너무 성겨진다.
 // 은하(10만 광년)부터 로고(4m)까지 걸치므로 자릿수를 넓게 깐다.
 const NICE_METERS = [];
-for (let e = -1; e <= 6; e++) {
+for (let e = -2; e <= 6; e++) {
   for (const m of [1, 2, 5]) NICE_METERS.push(m * Math.pow(10, e));
 }
 
@@ -78,7 +78,7 @@ export function pickCell(realSizeMeters, worldSpan) {
     if (err < bestErr) { bestErr = err; best = m; }
   }
   // 0.1 단위까지 내려가면 소수점이 붙는다. 읽기 좋게 정리한다.
-  const label = best >= 1 ? String(best) : String(Math.round(best * 10) / 10);
+  const label = best >= 1 ? String(best) : String(Math.round(best * 100) / 100);
   return { meters: label, world: (best / realSizeMeters) * worldSpan };
 }
 

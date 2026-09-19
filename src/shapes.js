@@ -4,7 +4,7 @@
 // 불변 규칙: 모든 형상은 정확히 같은 개수의 점을 반환한다.
 // 입자 i가 형상 A의 i번째 자리에서 형상 B의 i번째 자리로 1:1 대응되어야 한다.
 
-import { MASK_W, MASK_H, isInk } from "./caringMask.js";
+import { maskOf } from "./masks.js";
 
 const TAU = Math.PI * 2;
 
@@ -395,27 +395,57 @@ function genGalaxy(pos, n, rnd) {
   }
 }
 
-// 케어링 로고 마크. 구워둔 실루엣 마스크 안을 고르게 채운다.
-function genCaring(pos, n, rnd) {
-  const ink = [];
-  for (let gy = 0; gy < MASK_H; gy++) {
-    for (let gx = 0; gx < MASK_W; gx++) {
-      if (isInk(gx, gy)) ink.push(gy * MASK_W + gx);
-    }
-  }
+// 구워둔 실루엣 마스크 안을 고르게 채운다. XY 평면에 서 있는 판이 된다.
+//
+// cross를 켜면 절반을 90도 돌려 ZY 평면에도 세운다. 에펠탑처럼 평면도가
+// 정사각형인 구조물은 판 하나로는 옆에서 보면 사라지지만, 십자로 세우면
+// 어느 방향에서 봐도 탑으로 읽힌다.
+function maskGenerator(maskId, thickness, cross = false) {
+  return function (pos, n, rnd) {
+    const m = maskOf(maskId);
+    const s = 2 / m.w;
+    const cx = m.w / 2, cy = m.h / 2;
 
-  const s = 2 / MASK_W;
-  const cx = MASK_W / 2, cy = MASK_H / 2;
-  const thickness = 0.13;   // 납작한 판은 옆에서 보면 사라진다
+    for (let i = 0; i < n; i++) {
+      const cell = m.ink[Math.floor(rnd() * m.ink.length)];
+      const gx = cell % m.w;
+      const gy = (cell / m.w) | 0;
+      const px = (gx + rnd() - cx) * s;
+      const py = -(gy + rnd() - cy) * s;
+      const pz = (rnd() - 0.5) * thickness;
+      if (cross && rnd() < 0.5) setP(pos, i, pz, py, px);
+      else setP(pos, i, px, py, pz);
+    }
+  };
+}
+
+// 지구. 마스크는 실루엣이 아니라 사진의 밝기 지도다.
+//
+// 이 렌더에서는 구름과 육지가 같은 색 신호라 대륙만 분리할 수 없었다.
+// 그래서 밝은 곳(구름·사막·육지)은 표면에 빽빽하게, 어두운 곳(심해)은
+// 살짝 안쪽에 성기게 놓는다. 구름 낀 행성으로 읽힌다.
+//
+// 앞뒤 반구에 같은 무늬를 쓴다. 정면이 사진과 일치하고, 뒷면은 어차피
+// 가려져 있다.
+function genEarth(pos, n, rnd) {
+  const m = maskOf("earth");
 
   for (let i = 0; i < n; i++) {
-    const cell = ink[Math.floor(rnd() * ink.length)];
-    const gx = cell % MASK_W;
-    const gy = (cell / MASK_W) | 0;
-    setP(pos, i,
-      (gx + rnd() - cx) * s,
-      -(gy + rnd() - cy) * s,
-      (rnd() - 0.5) * thickness);
+    // 구 표면 균등 표집
+    const z = rnd() * 2 - 1;
+    const a = rnd() * TAU;
+    const rxy = Math.sqrt(Math.max(0, 1 - z * z));
+    const x = rxy * Math.cos(a), y = rxy * Math.sin(a);
+
+    // 정사영으로 사진의 어느 칸인지 찾는다. |z|를 쓰므로 뒷면은 앞면의 거울.
+    const gx = Math.min(m.w - 1, Math.max(0, Math.floor(((x + 1) / 2) * m.w)));
+    const gy = Math.min(m.h - 1, Math.max(0, Math.floor(((1 - y) / 2) * m.h)));
+    const bright = m.cells[gy * m.w + gx] === 1;
+
+    // 어두운 바다는 일부를 솎아내고 살짝 안쪽에 둔다.
+    const keep = bright || rnd() < 0.45;
+    const r = keep ? (bright ? 1.0 : 0.975) : 0.975;
+    setP(pos, i, x * r, y * r, z * r);
   }
 }
 
@@ -433,7 +463,12 @@ const GENERATORS = {
   vortex: genVortex,
   spikeball: genSpikeBall,
   galaxy: genGalaxy,
-  caring: genCaring,
+  caring: maskGenerator("caring", 0.13),
+  hand: maskGenerator("hand", 0.10),
+  palace: maskGenerator("palace", 0.42),
+  eiffel: maskGenerator("eiffel", 0.30, true),
+  butterfly: maskGenerator("butterfly", 0.07),
+  earth: genEarth,
 };
 
 // realSize: 이 형상이 "현실에서 몇 미터짜리인가". 월드 좌표를 바꾸지 않는다.
@@ -454,6 +489,11 @@ export const SHAPE_LIST = [
   { id: "vortex", label: "회오리", realSize: 26 },
   { id: "spikeball", label: "가시 구체", realSize: 9 },
   { id: "caring", label: "케어링", realSize: 4 },
+  { id: "butterfly", label: "나비", realSize: 0.12 },
+  { id: "hand", label: "손", realSize: 0.19 },
+  { id: "palace", label: "경복궁", realSize: 30 },
+  { id: "eiffel", label: "에펠탑", realSize: 330 },
+  { id: "earth", label: "지구", realSize: 12742, unit: "km" },
   // 은하만 단위가 다르다. 미터로 적으면 읽을 수 없는 숫자가 된다.
   // additive: 겹칠수록 밝아지게 그린다. 빽빽한 팽대부가 저절로 타오른다.
   { id: "galaxy", label: "은하", realSize: 100000, unit: "광년", additive: true },

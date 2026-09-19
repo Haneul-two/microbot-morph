@@ -9,6 +9,8 @@ import { PATH_GLSL, pathUniforms } from "./pathGlsl.js";
 
 const VERT = PATH_GLSL + `
 uniform float uSize;
+uniform float uSizeBoost;
+uniform float uAdditive;
 uniform float uSpeedScale;
 uniform float uProjScale;
 uniform float uCamDist;
@@ -49,9 +51,12 @@ void main() {
   // uSize는 월드 단위 지름이다. 원근에 따라 자연스럽게 작아진다.
   // 상한이 헐거우면 카메라가 가까이 붙었을 때 입자가 거대한 방울이 되어
   // 화면을 덮고 형상이 사라진다. 평소 크기는 2~6px이라 상한이 낮아도 손해가 없다.
-  float px = uSize * (0.62 + grade * 1.3) * (1.0 + vSpeed * 0.8)
+  //
+  // 가산 모드는 더 크고 최소 크기도 높다. 작은 점에 부드러운 감쇠를 그리면
+  // 그릴 픽셀이 없어 각진 알갱이로 깨지고, 은하의 가는 팔도 끊겨 보인다.
+  float px = uSize * uSizeBoost * (0.62 + grade * 1.3) * (1.0 + vSpeed * 0.8)
              * uProjScale / max(-mv.z, 0.1);
-  gl_PointSize = clamp(px, 1.0, 12.0);
+  gl_PointSize = clamp(px, uAdditive > 0.5 ? 2.6 : 1.0, 14.0);
 }
 `;
 
@@ -79,7 +84,7 @@ void main() {
   // 여기서 거리 감쇠를 배경색으로 "섞으면" 안 된다. 배경색이 입자 수만큼
   // 더해져 화면 전체가 뿌옇게 뜬다. 검정 쪽으로 곱해서 줄여야 한다.
   if (uAdditive > 0.5) {
-    float soft = pow(max(0.0, 1.0 - r), 2.2);
+    float soft = pow(max(0.0, 1.0 - r), 1.5);
     vec3 star = mix(uRimColor, uHotColor, vSpeed * 0.7);
     vec3 acc = star * vTint * soft * uAdditiveGain * (1.0 - vFog * uFogAmount);
     gl_FragColor = vec4(acc, 1.0);
@@ -135,7 +140,8 @@ export function createParticles(count) {
     transparent: false,
     depthWrite: true,
     uniforms: Object.assign(pathUniforms(), {
-      uSize: { value: 0.016 },
+      uSize: { value: 0.0125 },
+      uSizeBoost: { value: 1 },
       uProjScale: { value: 1000 },
       uCamDist: { value: 6.3 },
       // 조립식은 시차가 커서 각 입자의 이동 구간이 짧고, 그만큼 실제로
@@ -186,6 +192,7 @@ export function createParticles(count) {
     // 겹침이 누적되지 않아 가산의 의미가 없어진다.
     setAdditive(on) {
       material.uniforms.uAdditive.value = on ? 1 : 0;
+      material.uniforms.uSizeBoost.value = on ? 1.75 : 1;
       material.blending = on ? THREE.AdditiveBlending : THREE.NormalBlending;
       material.transparent = on;
       material.depthWrite = !on;
