@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SHAPE_LIST, buildShape, buildScatter, bottomOf, WORLD_SPAN, unitOf, isAdditive } from "./shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter, bottomOf, WORLD_SPAN, unitOf } from "./shapes.js";
 import { createParticles } from "./particles.js";
 import { createChips } from "./chips.js";
 import { formById, DEFAULT_FORM } from "./forms.js";
@@ -45,8 +45,6 @@ let morph = null;
 let pointerField = null;
 let shapeCount = 0;
 let currentForm = DEFAULT_FORM;
-// 현재 가산 블렌딩 상태. 재구성하면 새 머티리얼은 일반 모드로 시작한다.
-let additiveOn = false;
 // 저사양으로 판정되면 이후 모든 모양에서 낮은 입자 수를 쓴다.
 let lowQuality = false;
 
@@ -126,7 +124,6 @@ function buildWorld(startId, withIntro) {
     particles.material.uniforms.uProjScale.value = projScale;
   }
   scene.add(particles.object);
-  additiveOn = false;   // 새 머티리얼은 일반 모드다
 
   pointerField = createPointerField(particles.disp, count);
   pointerField.setRadius(ui.cursorRadius);
@@ -279,14 +276,6 @@ function frame() {
 
   particles.material.uniforms.uTime.value += dt;
   particles.material.uniforms.uCamDist.value = camera.position.length();
-
-  // 전이의 어느 한쪽이라도 가산 형상이면 전이 내내 가산으로 그린다.
-  // 중간에 바꾸면 형상이 맺히는 순간 깜빡인다.
-  const wantAdditive = isAdditive(morph.fromId) || isAdditive(morph.toId);
-  if (wantAdditive !== additiveOn) {
-    additiveOn = wantAdditive;
-    particles.setAdditive(additiveOn);
-  }
 
   // 거리 감쇠는 형상 크기에 맞춰져 있어, 훨씬 멀리서 날아오는 오프닝
   // 입자에 그대로 걸면 아무것도 안 보인다. 조립되는 동안 원래 값으로 되돌린다.

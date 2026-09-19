@@ -512,12 +512,8 @@ export const SHAPE_LIST = [
   { id: "hand", label: "손", realSize: 0.19 },
   { id: "earth", label: "지구", realSize: 12742, unit: "km" },
   // 은하만 단위가 다르다. 미터로 적으면 읽을 수 없는 숫자가 된다.
-  // additive: 겹칠수록 밝아지게 그린다. 빽빽한 팽대부가 저절로 타오른다.
-  { id: "galaxy", label: "은하", realSize: 100000, unit: "광년", additive: true },
+  { id: "galaxy", label: "은하", realSize: 100000, unit: "광년" },
 ];
-
-export const isAdditive = (id) =>
-  Boolean(SHAPE_LIST.find((s) => s.id === id)?.additive);
 
 export const unitOf = (id) =>
   SHAPE_LIST.find((s) => s.id === id)?.unit ?? "m";
