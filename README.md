@@ -4,6 +4,8 @@
 65,536개의 입자가 형상 사이를 오가며 재조립되고, **그 변형 과정 자체가
 눈에 보이도록** 만든 것이 목표다.
 
+**데모: https://haneul-two.github.io/microbot-morph/**
+
 ![미리보기](docs/preview.png)
 
 ## 실행
