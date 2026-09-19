@@ -172,6 +172,7 @@ canvas.addEventListener("pointerleave", () => { pointerOver = false; });
 const clock = new THREE.Clock();
 let fpsAccum = 0, fpsFrames = 0, fpsShown = 0;
 let probeTime = 0, probeFrames = 0, probeDone = false;
+let introDolly = false;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -181,6 +182,12 @@ function frame() {
   // 오프닝 돌리 인. 멀리서 시작해야 흩어진 구름 전체가 프레임에 들어온다.
   if (morph.intro) {
     controls.setDistance(INTRO_FAR + (INTRO_NEAR - INTRO_FAR) * morph.progress);
+    introDolly = true;
+  } else if (introDolly) {
+    // 오프닝이 끝났거나, 도중에 입자 모양을 바꿔 재구성되면서 취소됐다.
+    // 여기서 한 번 당겨주지 않으면 카메라가 오프닝 시작 거리에 갇힌다.
+    introDolly = false;
+    controls.setDistance(INTRO_NEAR);
   }
 
   controls.update(dt);

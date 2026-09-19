@@ -143,10 +143,7 @@ export function createChips(count, formId) {
     depthWrite: true,
     side: THREE.FrontSide,
     uniforms: Object.assign(pathUniforms(), {
-      // 입자가 적어진 만큼 하나가 커야 표면이 메워진다.
-      // 칩은 제각각 굴러 있어 종종 옆날이 보이므로, 넓이 계산보다
-      // 넉넉히 잡아야 형상에 구멍이 뚫려 보이지 않는다.
-      uChipSize: { value: formId === "rod" ? 0.055 : formId === "octa" ? 0.072 : 0.080 },
+      uChipSize: { value: formId === "rod" ? 0.036 : formId === "octa" ? 0.046 : 0.050 },
       uCamDist: { value: 6.3 },
       uSpeedScale: { value: 0.032 },
       uBaseColor: { value: new THREE.Color(0x141920) },
