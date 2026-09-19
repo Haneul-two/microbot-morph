@@ -44,7 +44,9 @@ void main() {
   vec3 c = texture2D(tScene, vUv).rgb;
   c += texture2D(tAcc, vUv).rgb * uTrail;
 
-  float vig = smoothstep(0.92, 0.28, length(vUv - 0.5));
+  // smoothstep은 edge0 >= edge1이면 결과가 정의되지 않는다. 인자를 바로
+  // 놓고 1에서 빼야 드라이버를 가리지 않는다.
+  float vig = 1.0 - smoothstep(0.28, 0.92, length(vUv - 0.5));
   c *= mix(0.62, 1.0, vig);
 
   gl_FragColor = vec4(c, 1.0);
