@@ -419,32 +419,53 @@ function maskGenerator(maskId, thickness, cross = false) {
   };
 }
 
-// 지구. 마스크는 실루엣이 아니라 사진의 밝기 지도다.
+// 지구. 마스크는 실루엣이 아니라 등장방형 육지 지도다.
 //
-// 이 렌더에서는 구름과 육지가 같은 색 신호라 대륙만 분리할 수 없었다.
-// 그래서 밝은 곳(구름·사막·육지)은 표면에 빽빽하게, 어두운 곳(심해)은
-// 살짝 안쪽에 성기게 놓는다. 구름 낀 행성으로 읽힌다.
+// Blue Marble 타일 8장을 경위도로 재조립해 구운 것이라 뒷면까지 진짜다.
+// 구면을 균등 표집한 뒤 경위도로 지도 칸을 찾고, 육지면 표면에 바다면
+// 살짝 안쪽에 놓는다. 밀도 차로 대륙이 드러난다.
 //
-// 앞뒤 반구에 같은 무늬를 쓴다. 정면이 사진과 일치하고, 뒷면은 어차피
-// 가려져 있다.
+// 표집을 육지 칸에서 시작하지 않는 이유: 등장방형 격자는 극지방 칸이
+// 실제로는 훨씬 좁은 면적이라, 칸을 고르게 뽑으면 남극과 그린란드에
+// 입자가 몰린다. 구면에서 뽑고 거르면 면적이 저절로 맞는다.
+const EARTH_LON0 = 0.35;   // 기본 시점에 아프리카·유럽이 오도록 돌려둔다
+
+// 입자 색과 크기가 모두 같으므로 대륙을 드러낼 단서는 밀도뿐이다.
+// 육지는 구면의 1/3인데 입자의 85%를 몰아주면 바다보다 11배 빽빽해진다.
+// 0.7로는 대비가 모자라 얼룩으로만 보였다.
+const EARTH_LAND_SHARE = 0.85;
+const EARTH_SEA_R = 0.94;   // 바다는 확실히 안쪽에 둬야 두 겹으로 갈린다
+
 function genEarth(pos, n, rnd) {
   const m = maskOf("earth");
 
+  const isLand = (x, y, z) => {
+    const lat = Math.asin(Math.min(1, Math.max(-1, y)));
+    let u = (EARTH_LON0 + Math.atan2(x, z)) / TAU + 0.5;
+    u -= Math.floor(u);
+    const v = 0.5 - lat / Math.PI;
+    const gx = Math.min(m.w - 1, Math.max(0, Math.floor(u * m.w)));
+    const gy = Math.min(m.h - 1, Math.max(0, Math.floor(v * m.h)));
+    return m.cells[gy * m.w + gx] === 1;
+  };
+
   for (let i = 0; i < n; i++) {
-    // 구 표면 균등 표집
-    const z = rnd() * 2 - 1;
-    const a = rnd() * TAU;
-    const rxy = Math.sqrt(Math.max(0, 1 - z * z));
-    const x = rxy * Math.cos(a), y = rxy * Math.sin(a);
+    const wantLand = rnd() < EARTH_LAND_SHARE;
+    let x = 0, y = 0, z = 0, land = false;
 
-    // 정사영으로 사진의 어느 칸인지 찾는다. |z|를 쓰므로 뒷면은 앞면의 거울.
-    const gx = Math.min(m.w - 1, Math.max(0, Math.floor(((x + 1) / 2) * m.w)));
-    const gy = Math.min(m.h - 1, Math.max(0, Math.floor(((1 - y) / 2) * m.h)));
-    const bright = m.cells[gy * m.w + gx] === 1;
+    // 원하는 쪽이 나올 때까지 몇 번 다시 뽑는다. 육지가 구면의 약 1/3이라
+    // 평균 세 번이면 걸린다.
+    for (let t = 0; t < 8; t++) {
+      y = rnd() * 2 - 1;
+      const a = rnd() * TAU;
+      const rxy = Math.sqrt(Math.max(0, 1 - y * y));
+      x = rxy * Math.cos(a);
+      z = rxy * Math.sin(a);
+      land = isLand(x, y, z);
+      if (land === wantLand) break;
+    }
 
-    // 어두운 바다는 일부를 솎아내고 살짝 안쪽에 둔다.
-    const keep = bright || rnd() < 0.45;
-    const r = keep ? (bright ? 1.0 : 0.975) : 0.975;
+    const r = land ? 1.0 : EARTH_SEA_R;
     setP(pos, i, x * r, y * r, z * r);
   }
 }
@@ -465,8 +486,6 @@ const GENERATORS = {
   galaxy: genGalaxy,
   caring: maskGenerator("caring", 0.13),
   hand: maskGenerator("hand", 0.10),
-  palace: maskGenerator("palace", 0.42),
-  eiffel: maskGenerator("eiffel", 0.30, true),
   butterfly: maskGenerator("butterfly", 0.07),
   earth: genEarth,
 };
@@ -491,8 +510,6 @@ export const SHAPE_LIST = [
   { id: "caring", label: "케어링", realSize: 4 },
   { id: "butterfly", label: "나비", realSize: 0.12 },
   { id: "hand", label: "손", realSize: 0.19 },
-  { id: "palace", label: "경복궁", realSize: 30 },
-  { id: "eiffel", label: "에펠탑", realSize: 330 },
   { id: "earth", label: "지구", realSize: 12742, unit: "km" },
   // 은하만 단위가 다르다. 미터로 적으면 읽을 수 없는 숫자가 된다.
   // additive: 겹칠수록 밝아지게 그린다. 빽빽한 팽대부가 저절로 타오른다.
