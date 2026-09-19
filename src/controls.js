@@ -68,6 +68,14 @@ export function createControls(camera, dom) {
   dom.addEventListener("touchend", () => { pinch = 0; });
 
   return {
+    // 프로그램이 거는 줌. 오프닝의 돌리 인에 쓴다.
+    // motion을 건드리지 않는다 — 느린 돌리까지 잔상을 끊으면 오프닝에서
+    // 가장 볼 만한 궤적이 사라진다.
+    setDistance(r, snap = false) {
+      tRadius = Math.min(MAX_R, Math.max(MIN_R, r));
+      if (snap) radius = tRadius;
+    },
+
     update(dt) {
       const k = 1 - Math.pow(0.001, dt);
       theta += (tTheta - theta) * k;

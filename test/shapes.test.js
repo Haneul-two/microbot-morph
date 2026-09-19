@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SHAPE_LIST, buildShape, FIT_RADIUS, mulberry32 } from "../src/shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter, FIT_RADIUS, mulberry32 } from "../src/shapes.js";
 
 const N = 8192;
 
@@ -87,6 +87,48 @@ test("Morton 정렬로 이웃 인덱스가 공간적으로 가까워진다", () 
     assert.ok(adjacent < random * 0.2,
       `${s.id} 인접=${adjacent.toFixed(4)} 무작위=${random.toFixed(4)}`);
   }
+});
+
+test("오프닝 구름은 형상과 같은 개수이고 지정한 반경대에 있다", () => {
+  // 개수가 어긋나면 오프닝에서 입자 대응이 무너진다.
+  const inner = 2.9, outer = 5.0;
+  const p = buildScatter(N, inner, outer);
+  assert.equal(p.length, N * 3);
+  for (let i = 0; i < N; i++) {
+    const r = Math.hypot(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]);
+    assert.ok(Number.isFinite(r), `인덱스 ${i}`);
+    assert.ok(r >= inner - 1e-4 && r <= outer + 1e-4, `반경 ${r}`);
+  }
+});
+
+test("오프닝 구름도 이웃 인덱스가 공간적으로 가깝다", () => {
+  // 정렬이 없으면 입자가 제각각 날아와 흐름이 아니라 낱알로 보인다.
+  // 구름은 형상보다 부피가 훨씬 커서 최근접 간격 자체가 크므로,
+  // 절대 거리가 아니라 무작위 쌍과의 비율로 본다.
+  const p = buildScatter(N);
+  let adjacent = 0;
+  for (let i = 1; i < N; i++) {
+    adjacent += Math.hypot(
+      p[i * 3] - p[(i - 1) * 3],
+      p[i * 3 + 1] - p[(i - 1) * 3 + 1],
+      p[i * 3 + 2] - p[(i - 1) * 3 + 2]);
+  }
+  adjacent /= N - 1;
+
+  const rnd = mulberry32(11);
+  let random = 0;
+  const samples = 4000;
+  for (let k = 0; k < samples; k++) {
+    const i = Math.floor(rnd() * N), j = Math.floor(rnd() * N);
+    random += Math.hypot(
+      p[i * 3] - p[j * 3],
+      p[i * 3 + 1] - p[j * 3 + 1],
+      p[i * 3 + 2] - p[j * 3 + 2]);
+  }
+  random /= samples;
+
+  assert.ok(adjacent < random * 0.2,
+    `인접=${adjacent.toFixed(4)} 무작위=${random.toFixed(4)}`);
 });
 
 test("알 수 없는 형상 id는 던진다", () => {

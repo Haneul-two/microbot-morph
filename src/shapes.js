@@ -67,15 +67,15 @@ function part1By2(v) {
 
 // 3D z-order 정렬. 두 형상에서 가까운 인덱스가 공간적으로도 가깝게 놓여
 // 입자 이동 거리가 짧아지고 이웃 관계가 유지된다.
-function mortonSort(pos, n) {
+function mortonSort(pos, n, halfSpan = FIT_RADIUS) {
   const codes = new Float64Array(n);
   const order = new Array(n);
-  const span = FIT_RADIUS * 2;
+  const span = halfSpan * 2;
   for (let i = 0; i < n; i++) {
     order[i] = i;
-    const nx = Math.min(1023, Math.max(0, Math.round(((pos[i * 3] + FIT_RADIUS) / span) * 1023)));
-    const ny = Math.min(1023, Math.max(0, Math.round(((pos[i * 3 + 1] + FIT_RADIUS) / span) * 1023)));
-    const nz = Math.min(1023, Math.max(0, Math.round(((pos[i * 3 + 2] + FIT_RADIUS) / span) * 1023)));
+    const nx = Math.min(1023, Math.max(0, Math.round(((pos[i * 3] + halfSpan) / span) * 1023)));
+    const ny = Math.min(1023, Math.max(0, Math.round(((pos[i * 3 + 1] + halfSpan) / span) * 1023)));
+    const nz = Math.min(1023, Math.max(0, Math.round(((pos[i * 3 + 2] + halfSpan) / span) * 1023)));
     codes[i] = part1By2(nx) + part1By2(ny) * 2 + part1By2(nz) * 4;
   }
   order.sort((a, b) => (codes[a] - codes[b]) || (a - b));
@@ -351,6 +351,28 @@ export const SHAPE_LIST = [
   { id: "vortex", label: "회오리" },
   { id: "spikeball", label: "가시 구체" },
 ];
+
+// 오프닝용 흩어진 구름. 갤러리에 넣지 않는다 — 사용자가 고를 형상이 아니라
+// 첫 조립의 출발점이다.
+//
+// 형상들과 달리 반경을 정규화하지 않는다. 멀리 흩어져 있다는 것이 요점이다.
+// Morton 정렬은 여기서도 한다. 한 구역에서 출발한 입자들이 목표의 한 구역으로
+// 함께 몰려가야 낱알이 아니라 흐름으로 보인다.
+// 바깥 반경은 카메라 거리(기본 6.3)보다 넉넉히 작아야 한다. 구름이 카메라를
+// 감싸면 코앞의 입자가 거대한 스프라이트로 그려져 화면을 덮어버린다.
+export function buildScatter(count = DEFAULT_COUNT, inner = 2.3, outer = 3.8) {
+  const pos = new Float32Array(count * 3);
+  const rnd = mulberry32(0x5ca77e5);
+  for (let i = 0; i < count; i++) {
+    let x = rnd() * 2 - 1, y = rnd() * 2 - 1, z = rnd() * 2 - 1;
+    const l = Math.hypot(x, y, z) || 1;
+    // cbrt로 껍질이 아니라 부피에 고르게 퍼뜨린다.
+    const r = inner + (outer - inner) * Math.cbrt(rnd());
+    setP(pos, i, (x / l) * r, (y / l) * r, (z / l) * r);
+  }
+  mortonSort(pos, count, outer);
+  return pos;
+}
 
 export function buildShape(id, count = DEFAULT_COUNT) {
   const gen = GENERATORS[id];

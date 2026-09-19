@@ -99,6 +99,7 @@ uniform vec3 uBaseColor;
 uniform vec3 uRimColor;
 uniform vec3 uHotColor;
 uniform vec3 uFogColor;
+uniform float uFogAmount;
 
 varying float vSpeed;
 varying float vFog;
@@ -122,7 +123,10 @@ void main() {
   col = mix(col, uHotColor, vSpeed * 0.85);
 
   // 뒤쪽 입자를 배경색으로 밀어 넣는다.
-  col = mix(col, uFogColor, vFog * 0.88);
+  // 감쇠 폭이 형상 크기(반경 1.5)에 맞춰져 있어, 훨씬 멀리서 날아오는
+  // 오프닝 입자에는 그대로 쓰면 아무것도 안 보인다. main이 오프닝 동안
+  // uFogAmount를 낮췄다가 되돌린다.
+  col = mix(col, uFogColor, vFog * uFogAmount);
 
   gl_FragColor = vec4(col, 1.0);
 }
@@ -172,6 +176,7 @@ export function createParticles(count) {
       uRimColor: { value: new THREE.Color(0x9fb6d2) },
       uHotColor: { value: new THREE.Color(0xff7a33) },
       uFogColor: { value: new THREE.Color(0x05070a) },
+      uFogAmount: { value: 0.88 },
     },
   });
 

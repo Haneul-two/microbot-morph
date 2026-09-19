@@ -13,6 +13,8 @@ export function createUI(handlers) {
   const percentEl = document.getElementById("percent");
   const transitionEl = document.getElementById("transitionLabel");
   const autoTourEl = document.getElementById("autoTour");
+  const cursorRadiusEl = document.getElementById("cursorRadius");
+  const cursorRadiusValueEl = document.getElementById("cursorRadiusValue");
   const statCountEl = document.getElementById("statCount");
   const statFpsEl = document.getElementById("statFps");
 
@@ -41,6 +43,18 @@ export function createUI(handlers) {
   playEl.addEventListener("click", () => handlers.onPlayToggle());
   autoTourEl.addEventListener("change", () => handlers.onAutoTour(autoTourEl.checked));
 
+  cursorRadiusEl.addEventListener("input", () => {
+    const v = Number(cursorRadiusEl.value) / 100;
+    cursorRadiusValueEl.textContent = v.toFixed(2);
+    handlers.onCursorRadius(v);
+  });
+
+  // 패널은 세로 스크롤이 되는데, 휠로 스크롤하다 슬라이더 위를 지나가면
+  // 브라우저가 스크롤 대신 슬라이더 값을 바꿔버린다. 의도한 조작이 아니다.
+  for (const el of [scrubEl, cursorRadiusEl]) {
+    el.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
+  }
+
   let scrubbing = false;
   scrubEl.addEventListener("pointerdown", () => { scrubbing = true; });
   const stop = () => { scrubbing = false; };
@@ -68,6 +82,10 @@ export function createUI(handlers) {
         : labelOf(state.currentId);
       autoTourEl.checked = state.autoTour;
     },
+
+    // 입자 시스템을 다시 만들어도 슬라이더에 표시된 값이 그대로 적용되도록
+    // 현재 값을 돌려준다.
+    get cursorRadius() { return Number(cursorRadiusEl.value) / 100; },
 
     setStats(count, fps) {
       statCountEl.textContent = count.toLocaleString("ko-KR") + " 입자";

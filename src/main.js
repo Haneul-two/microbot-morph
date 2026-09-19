@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SHAPE_LIST, buildShape, DEFAULT_COUNT, LOW_COUNT } from "./shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter, DEFAULT_COUNT, LOW_COUNT } from "./shapes.js";
 import { createParticles } from "./particles.js";
 import { createMorph } from "./morph.js";
 import { createPostFX } from "./postfx.js";
@@ -50,9 +50,10 @@ const ui = createUI({
   onScrub: (v) => morph.setProgress(v),
   onPlayToggle: () => morph.setPlaying(!morph.playing),
   onAutoTour: (v) => morph.setAutoTour(v),
+  onCursorRadius: (v) => pointerField.setRadius(v),
 });
 
-function buildWorld(count, startId) {
+function buildWorld(count, startId, withIntro) {
   if (particles) {
     scene.remove(particles.points);
     particles.dispose();
@@ -77,12 +78,14 @@ function buildWorld(count, startId) {
   scene.add(particles.points);
 
   pointerField = createPointerField(particles.disp, count);
+  pointerField.setRadius(ui.cursorRadius);
 
   morph = createMorph({
     particles,
     getShape,
     shapeIds,
     startId,
+    introFrom: withIntro ? buildScatter(count) : null,
     onUpdate: (s) => ui.sync(s),
   });
 
@@ -91,8 +94,8 @@ function buildWorld(count, startId) {
     currentId: morph.currentId,
     fromId: morph.currentId,
     toId: morph.currentId,
-    t: 1,
-    playing: false,
+    t: morph.progress,
+    playing: morph.playing,
     queued: null,
     autoTour: morph.autoTour,
     mode: morph.mode,
@@ -100,7 +103,11 @@ function buildWorld(count, startId) {
   });
 }
 
-buildWorld(DEFAULT_COUNT, shapeIds[0]);
+const INTRO_FAR = 10.2;   // 오프닝 시작 거리
+const INTRO_NEAR = 6.3;   // 조립이 끝났을 때 거리
+
+buildWorld(DEFAULT_COUNT, shapeIds[0], true);
+if (morph.intro) controls.setDistance(INTRO_FAR, true);
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
@@ -148,10 +155,20 @@ function frame() {
 
   const dt = Math.min(clock.getDelta(), 0.05);
 
+  // 오프닝 돌리 인. 멀리서 시작해야 흩어진 구름 전체가 프레임에 들어온다.
+  if (morph.intro) {
+    controls.setDistance(INTRO_FAR + (INTRO_NEAR - INTRO_FAR) * morph.progress);
+  }
+
   controls.update(dt);
   morph.update(dt);
   particles.material.uniforms.uTime.value += dt;
   particles.material.uniforms.uCamDist.value = camera.position.length();
+
+  // 거리 감쇠는 형상 크기에 맞춰져 있어, 훨씬 멀리서 날아오는 오프닝
+  // 입자에 그대로 걸면 아무것도 안 보인다. 조립되는 동안 원래 값으로 되돌린다.
+  particles.material.uniforms.uFogAmount.value =
+    morph.intro ? 0.30 + 0.58 * morph.progress : 0.88;
 
   const hasCursor = pointerOver && cursorRay(camera, ndc.x, ndc.y, rayDir);
   if (pointerField.update(dt, particles.posB, camera.position, rayDir, hasCursor)) {
@@ -171,14 +188,16 @@ function frame() {
     fpsAccum = 0; fpsFrames = 0;
   }
 
-  // 초반 2.5초 평균이 40fps 미만이면 입자 수를 낮춘다.
-  if (!probeDone && shapeCount === DEFAULT_COUNT) {
+  // 오프닝이 끝난 뒤 2.5초 평균이 40fps 미만이면 입자 수를 낮춘다.
+  // 오프닝 도중에 재구성하면 첫 장면이 끊긴다.
+  if (!probeDone && shapeCount === DEFAULT_COUNT && !morph.intro) {
     probeTime += dt; probeFrames++;
     if (probeTime > 2.5) {
       probeDone = true;
       if (probeFrames / probeTime < 40) {
         console.info("저사양 감지: 입자 수를", LOW_COUNT, "로 낮춥니다");
-        buildWorld(LOW_COUNT, morph.currentId);
+        // 재구성 때는 오프닝을 다시 틀지 않는다.
+        buildWorld(LOW_COUNT, morph.currentId, false);
       }
     }
   }
