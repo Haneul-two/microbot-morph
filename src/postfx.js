@@ -113,9 +113,17 @@ export function createPostFX(renderer, width, height) {
   makeTargets(width, height);
 
   return {
+    // 타깃을 버리고 새로 만들지 않는다.
+    //
+    // 모바일은 주소창이 오르내릴 때마다 리사이즈를 쏘는데, 그때마다
+    // 재할당하면 화면이 한 프레임씩 검게 깜빡이고 할당이 실패하면
+    // 버려진 타깃으로 계속 그리게 된다. 크기만 바꾸면 그 창이 없다.
     setSize(w, h) {
-      disposeTargets();
-      makeTargets(w, h);
+      const aw = Math.max(1, Math.floor(w * ACC_SCALE));
+      const ah = Math.max(1, Math.floor(h * ACC_SCALE));
+      rtScene.setSize(w, h);
+      accA.setSize(aw, ah);
+      accB.setSize(aw, ah);
     },
 
     // decay: 0에 가까울수록 잔상이 짧다.

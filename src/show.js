@@ -17,7 +17,13 @@ export const SHOW_ORDER = SHAPE_LIST
 
 const DWELL = 1.6;   // 형상을 보여주고 다음으로 넘어가기까지(초)
 
-export function createShow({ morph, onChange }) {
+// morph 객체가 아니라 **가져오는 함수**를 받는다.
+//
+// 입자 모양을 바꾸거나 저사양으로 판정되면 세계를 재구성하면서 morph가
+// 새 인스턴스로 교체된다. 객체를 붙잡아 두면 쇼가 죽은 morph를 계속
+// 조종해서 그 자리에 멈춰 버린다. 모바일은 fps 판정으로 재구성이 거의
+// 항상 일어나므로 이 경로를 반드시 밟는다.
+export function createShow({ getMorph, onChange }) {
   let running = false;
   let index = 0;
   let dwell = 0;
@@ -31,8 +37,9 @@ export function createShow({ morph, onChange }) {
       running = true;
       index = 0;
       dwell = 0;
-      morph.setAutoTour(false);
-      morph.request(SHOW_ORDER[0]);
+      const m = getMorph();
+      m.setAutoTour(false);
+      m.request(SHOW_ORDER[0]);
       onChange?.();
     },
 
@@ -48,9 +55,10 @@ export function createShow({ morph, onChange }) {
 
     update(dt) {
       if (!running) return;
+      const m = getMorph();
 
       // 전이가 진행 중이면 기다린다.
-      if (morph.playing || morph.progress < 1) {
+      if (m.playing || m.progress < 1) {
         dwell = 0;
         return;
       }
@@ -62,8 +70,8 @@ export function createShow({ morph, onChange }) {
       index = (index + 1) % SHOW_ORDER.length;
       // 비트마다 변형 방식을 번갈아 쓴다. 같은 연출이 열 번 반복되면
       // 순서만 다른 자동 순회와 구분이 안 된다.
-      morph.setMode(index % 2 === 0 ? "flock" : "assemble");
-      morph.request(SHOW_ORDER[index]);
+      m.setMode(index % 2 === 0 ? "flock" : "assemble");
+      m.request(SHOW_ORDER[index]);
       onChange?.();
     },
   };

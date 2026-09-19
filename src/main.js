@@ -168,16 +168,34 @@ function decorate(s) {
 const INTRO_FAR = 10.2;   // 오프닝 시작 거리
 const INTRO_NEAR = 6.3;   // 조립이 끝났을 때 거리
 
+// 세로로 긴 화면에서는 가로 시야가 좁아 형상이 양옆으로 잘린다.
+// 카메라 거리는 가로 기준으로도 형상이 들어올 만큼은 확보해야 한다.
+// 가로가 넉넉한 화면에서는 원래 거리를 그대로 쓴다.
+const FIT_MARGIN = 1.8;   // 형상 반경 1.5 + 비행 중 부풀림 여유
+
+function fitRadius(r) {
+  const halfW = Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+  return Math.max(r, FIT_MARGIN / Math.max(halfW, 0.05));
+}
+
 let show = null;
 
 buildWorld(shapeIds[0], true);
 if (morph.intro) controls.setDistance(INTRO_FAR, true);
 
-show = createShow({ morph, onChange: () => ui.sync(decorate(morph.state())) });
+// 객체가 아니라 가져오는 함수를 넘긴다. 재구성하면 morph가 교체되므로
+// 붙잡아 두면 쇼가 죽은 morph를 조종하게 된다.
+show = createShow({ getMorph: () => morph, onChange: () => ui.sync(decorate(morph.state())) });
+
+let lastW = 0, lastH = 0;
 
 function resize() {
   const w = canvas.clientWidth || window.innerWidth;
   const h = canvas.clientHeight || window.innerHeight;
+  // 모바일은 주소창이 오르내릴 때 같은 크기로도 리사이즈를 쏜다.
+  if (w === lastW && h === lastH) return;
+  lastW = w; lastH = h;
+
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -186,15 +204,35 @@ function resize() {
   const bh = Math.max(1, Math.floor(h * dpr));
 
   // gl_PointSize는 장치 픽셀 단위라 드로잉 버퍼 높이를 쓴다.
+  // 칩 렌더러는 픽셀 크기를 쓰지 않아 이 uniform이 없다. 가드가 없으면
+  // 칩 모드에서 리사이즈할 때마다 예외가 나고 아래 postfx 갱신이 통째로
+  // 건너뛰어져, 캔버스와 렌더 타깃 크기가 어긋난 채로 그려진다.
   projScale = bh / (2 * Math.tan((camera.fov * Math.PI) / 360));
-  if (particles) particles.material.uniforms.uProjScale.value = projScale;
+  if (particles && particles.material.uniforms.uProjScale) {
+    particles.material.uniforms.uProjScale.value = projScale;
+  }
 
-  if (postfx) postfx.dispose();
-  postfx = createPostFX(renderer, bw, bh);
+  if (postfx) postfx.setSize(bw, bh);
+  else postfx = createPostFX(renderer, bw, bh);
 }
 
 resize();
 window.addEventListener("resize", resize);
+
+// 모바일은 메모리 압박으로 WebGL 컨텍스트를 잃는 일이 있다.
+// preventDefault를 부르지 않으면 브라우저가 복구를 시도조차 하지 않아
+// 캔버스가 영영 검은 채로 남는다.
+canvas.addEventListener("webglcontextlost", (e) => {
+  e.preventDefault();
+  console.warn("WebGL 컨텍스트 손실 — 복구 대기");
+});
+
+canvas.addEventListener("webglcontextrestored", () => {
+  console.info("WebGL 컨텍스트 복구됨");
+  // 크기를 다시 계산해 렌더 타깃을 새 컨텍스트에 올린다.
+  lastW = 0; lastH = 0;
+  resize();
+});
 
 // --- 커서 ------------------------------------------------------------------
 
@@ -227,13 +265,13 @@ function frame() {
 
   // 오프닝 돌리 인. 멀리서 시작해야 흩어진 구름 전체가 프레임에 들어온다.
   if (morph.intro) {
-    controls.setDistance(INTRO_FAR + (INTRO_NEAR - INTRO_FAR) * morph.progress);
+    controls.setDistance(fitRadius(INTRO_FAR) + (fitRadius(INTRO_NEAR) - fitRadius(INTRO_FAR)) * morph.progress);
     introDolly = true;
   } else if (introDolly) {
     // 오프닝이 끝났거나, 도중에 입자 모양을 바꿔 재구성되면서 취소됐다.
     // 여기서 한 번 당겨주지 않으면 카메라가 오프닝 시작 거리에 갇힌다.
     introDolly = false;
-    controls.setDistance(INTRO_NEAR);
+    controls.setDistance(fitRadius(INTRO_NEAR));
   }
 
   show.update(dt);
@@ -244,8 +282,9 @@ function frame() {
   const autoCam = !morph.intro && !controls.userRecently(8);
   if (autoCam) {
     const preset = presetFor(morph.toId);
+    const radius = fitRadius(preset.radius);
     if (posedFor !== morph.toId) {
-      controls.setPose(preset.theta, preset.phi, preset.radius);
+      controls.setPose(preset.theta, preset.phi, radius);
       posedFor = morph.toId;
     }
     if (show.running) {
@@ -255,7 +294,7 @@ function frame() {
         const u = Math.min(1, Math.max(0, (morph.progress - 0.12) / 0.72));
         // 비행 중에는 입자가 형상 반경 밖으로 부풀기 때문에, 정착 거리
         // 기준으로 재면 생각보다 훨씬 가까워진다. 18%면 충분히 다가온다.
-        controls.setDistance(preset.radius * (1 - 0.18 * Math.sin(Math.PI * u)));
+        controls.setDistance(radius * (1 - 0.18 * Math.sin(Math.PI * u)));
       } else {
         // 형상을 보여주는 동안에는 천천히 돈다. 정지 화면과 확실히 다르다.
         controls.orbit(dt * 0.16);
