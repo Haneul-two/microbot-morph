@@ -17,15 +17,21 @@ function rateAt(t) {
   return 1 - (1 - SLOW_MIN) * Math.pow(bell, 1.4);
 }
 
-export function createMorph({ particles, getShape, shapeIds, startId, introFrom, onUpdate }) {
+// 입자 모양을 바꾸면 세계를 재구성하는데, 그때 사용자가 고른 변형 방식과
+// 자동 순회 여부는 그대로 이어받아야 한다. 그래서 초기값을 인자로 받는다.
+export function createMorph({
+  particles, getShape, shapeIds, startId, introFrom, onUpdate,
+  mode: initialMode = "flock",
+  autoTour: initialAutoTour = true,
+}) {
   let currentId = shapeIds.includes(startId) ? startId : shapeIds[0];
   let fromId = currentId;
   let toId = currentId;
-  let mode = "flock";
+  let mode = initialMode;
   let t = 1;
   let playing = false;
   let queued = null;
-  let autoTour = true;
+  let autoTour = initialAutoTour;
   let idle = 0;
 
   // 오프닝: 사방에 흩어진 입자가 몰려와 첫 형상을 조립한다.

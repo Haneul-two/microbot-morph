@@ -22,6 +22,7 @@ python -m http.server 8765
 | 조작 | 동작 |
 |---|---|
 | 형상 버튼 | 해당 형상으로 변형. 변형 중이면 큐에 들어가 이어서 실행된다 |
+| 입자 모양 | 안개(점) / 정육면체 / 막대 / 팔면체 |
 | 군집 비행 / 조립식 | 입자가 출발하는 순서를 바꾼다 |
 | 진행률 슬라이더 | 마지막 변형을 0~100% 사이에서 자유롭게 되감는다 |
 | 커서 반경 슬라이더 | 커서가 밀어내는 범위. 기본 0.22, 범위 0.08~0.75 |
@@ -41,7 +42,10 @@ python -m http.server 8765
 index.html        importmap, 캔버스, UI 마크업
 src/shapes.js     형상 생성기 (순수 함수, three.js 비의존)
 src/delayModes.js 군집 비행 / 조립식 시차 함수
-src/particles.js  Points 지오메트리 + 커스텀 셰이더
+src/pathGlsl.js   궤적 수식 (두 렌더러가 공유)
+src/forms.js      입자 모양 프리셋과 모양별 입자 수
+src/particles.js  안개형 렌더러 — Points + 점 스프라이트
+src/chips.js      칩형 렌더러 — InstancedBufferGeometry + 3D 메시
 src/morph.js      전이 상태, 큐, 자동 순회
 src/postfx.js     잔상 누적 및 합성
 src/controls.js   궤도 카메라, 커서 광선
@@ -54,6 +58,12 @@ src/main.js       씬 조립, 렌더 루프
 올려두고, 매 프레임 진행률 `uT` 하나만 넘긴다. 위치 계산은 전부 vertex
 shader가 한다. 상태가 누적되지 않으므로 스크러버(자유 되감기)가 `uT`를
 슬라이더에 연결하는 것만으로 구현된다.
+
+입자 모양은 렌더러 두 개를 바꿔 끼우는 것이다. 안개형은 점 스프라이트
+65,536개, 칩형은 진짜 3D 메시 12,288개다. 입자 수가 모양에 딸려 오는 이유는
+점은 입자당 vertex shader가 1번 돌지만 정육면체는 36번 돌기 때문이다.
+두 렌더러는 `pathGlsl.js`의 궤적 수식을 **공유한다** — 두 벌로 나누면
+모드를 바꿀 때 형상이 어긋난다.
 
 자세한 설계 근거와 기각한 대안은
 [docs/superpowers/specs/2026-09-19-microbot-morph-design.md](docs/superpowers/specs/2026-09-19-microbot-morph-design.md)

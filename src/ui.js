@@ -1,5 +1,6 @@
 import { SHAPE_LIST } from "./shapes.js";
 import { DELAY_MODES } from "./delayModes.js";
+import { PARTICLE_FORMS } from "./forms.js";
 
 // 패널 DOM. 마크업은 index.html에 있고 여기서는 버튼 생성과 상태 반영만 한다.
 
@@ -25,6 +26,16 @@ export function createUI(handlers) {
     b.addEventListener("click", () => handlers.onShape(s.id));
     shapesEl.appendChild(b);
     shapeButtons.set(s.id, b);
+  }
+
+  const formsEl = document.getElementById("forms");
+  const formButtons = new Map();
+  for (const f of PARTICLE_FORMS) {
+    const b = document.createElement("button");
+    b.textContent = f.label;
+    b.addEventListener("click", () => handlers.onForm(f.id));
+    formsEl.appendChild(b);
+    formButtons.set(f.id, b);
   }
 
   const modeButtons = new Map();
@@ -69,6 +80,9 @@ export function createUI(handlers) {
       }
       for (const [id, b] of modeButtons) {
         b.classList.toggle("active", id === state.mode);
+      }
+      for (const [id, b] of formButtons) {
+        b.classList.toggle("active", id === state.form);
       }
 
       // 사용자가 슬라이더를 잡고 있는 동안에는 값을 덮어쓰지 않는다.

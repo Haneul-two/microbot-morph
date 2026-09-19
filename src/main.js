@@ -1,6 +1,8 @@
 import * as THREE from "three";
-import { SHAPE_LIST, buildShape, buildScatter, DEFAULT_COUNT, LOW_COUNT } from "./shapes.js";
+import { SHAPE_LIST, buildShape, buildScatter } from "./shapes.js";
 import { createParticles } from "./particles.js";
+import { createChips } from "./chips.js";
+import { formById, DEFAULT_FORM } from "./forms.js";
 import { createMorph } from "./morph.js";
 import { createPostFX } from "./postfx.js";
 import { createControls, cursorRay } from "./controls.js";
@@ -38,7 +40,10 @@ let postfx = null;
 let particles = null;
 let morph = null;
 let pointerField = null;
-let shapeCount = DEFAULT_COUNT;
+let shapeCount = 0;
+let currentForm = DEFAULT_FORM;
+// 저사양으로 판정되면 이후 모든 모양에서 낮은 입자 수를 쓴다.
+let lowQuality = false;
 
 // 입자 크기를 픽셀이 아니라 월드 단위로 다루기 위한 환산 계수.
 // resize에서 실제 값으로 채운다.
@@ -51,11 +56,21 @@ const ui = createUI({
   onPlayToggle: () => morph.setPlaying(!morph.playing),
   onAutoTour: (v) => morph.setAutoTour(v),
   onCursorRadius: (v) => pointerField.setRadius(v),
+  onForm: (id) => {
+    if (id === currentForm) return;
+    currentForm = id;
+    // 모양이 바뀌면 입자 수와 지오메트리가 통째로 바뀌므로 재구성한다.
+    // 진행 중이던 전이는 현재 형상에 정착한 상태로 넘어간다.
+    buildWorld(morph.currentId, false);
+  },
 });
 
-function buildWorld(count, startId, withIntro) {
+function buildWorld(startId, withIntro) {
+  const form = formById(currentForm);
+  const count = lowQuality ? form.low : form.high;
+
   if (particles) {
-    scene.remove(particles.points);
+    scene.remove(particles.object);
     particles.dispose();
   }
 
@@ -73,9 +88,14 @@ function buildWorld(count, startId, withIntro) {
     return cache.get(id);
   };
 
-  particles = createParticles(count);
-  particles.material.uniforms.uProjScale.value = projScale;
-  scene.add(particles.points);
+  particles = form.kind === "chips"
+    ? createChips(count, form.id)
+    : createParticles(count);
+  // 칩 렌더러는 픽셀 크기를 쓰지 않으므로 이 uniform이 없다.
+  if (particles.material.uniforms.uProjScale) {
+    particles.material.uniforms.uProjScale.value = projScale;
+  }
+  scene.add(particles.object);
 
   pointerField = createPointerField(particles.disp, count);
   pointerField.setRadius(ui.cursorRadius);
@@ -85,8 +105,10 @@ function buildWorld(count, startId, withIntro) {
     getShape,
     shapeIds,
     startId,
+    mode: morph?.mode,
+    autoTour: morph?.autoTour,
     introFrom: withIntro ? buildScatter(count) : null,
-    onUpdate: (s) => ui.sync(s),
+    onUpdate: (s) => ui.sync(Object.assign(s, { form: currentForm })),
   });
 
   shapeCount = count;
@@ -99,6 +121,7 @@ function buildWorld(count, startId, withIntro) {
     queued: null,
     autoTour: morph.autoTour,
     mode: morph.mode,
+    form: currentForm,
     canScrub: false,
   });
 }
@@ -106,7 +129,7 @@ function buildWorld(count, startId, withIntro) {
 const INTRO_FAR = 10.2;   // 오프닝 시작 거리
 const INTRO_NEAR = 6.3;   // 조립이 끝났을 때 거리
 
-buildWorld(DEFAULT_COUNT, shapeIds[0], true);
+buildWorld(shapeIds[0], true);
 if (morph.intro) controls.setDistance(INTRO_FAR, true);
 
 function resize() {
@@ -190,14 +213,15 @@ function frame() {
 
   // 오프닝이 끝난 뒤 2.5초 평균이 40fps 미만이면 입자 수를 낮춘다.
   // 오프닝 도중에 재구성하면 첫 장면이 끊긴다.
-  if (!probeDone && shapeCount === DEFAULT_COUNT && !morph.intro) {
+  if (!probeDone && !lowQuality && !morph.intro) {
     probeTime += dt; probeFrames++;
     if (probeTime > 2.5) {
       probeDone = true;
       if (probeFrames / probeTime < 40) {
-        console.info("저사양 감지: 입자 수를", LOW_COUNT, "로 낮춥니다");
+        lowQuality = true;
+        console.info("저사양 감지: 입자 수를 낮춥니다");
         // 재구성 때는 오프닝을 다시 틀지 않는다.
-        buildWorld(LOW_COUNT, morph.currentId, false);
+        buildWorld(morph.currentId, false);
       }
     }
   }
