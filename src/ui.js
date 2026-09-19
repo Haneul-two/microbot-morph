@@ -1,0 +1,77 @@
+import { SHAPE_LIST } from "./shapes.js";
+import { DELAY_MODES } from "./delayModes.js";
+
+// 패널 DOM. 마크업은 index.html에 있고 여기서는 버튼 생성과 상태 반영만 한다.
+
+const labelOf = (id) => SHAPE_LIST.find((s) => s.id === id)?.label ?? id;
+
+export function createUI(handlers) {
+  const shapesEl = document.getElementById("shapes");
+  const modesEl = document.getElementById("modes");
+  const scrubEl = document.getElementById("scrub");
+  const playEl = document.getElementById("play");
+  const percentEl = document.getElementById("percent");
+  const transitionEl = document.getElementById("transitionLabel");
+  const autoTourEl = document.getElementById("autoTour");
+  const statCountEl = document.getElementById("statCount");
+  const statFpsEl = document.getElementById("statFps");
+
+  const shapeButtons = new Map();
+  for (const s of SHAPE_LIST) {
+    const b = document.createElement("button");
+    b.textContent = s.label;
+    b.addEventListener("click", () => handlers.onShape(s.id));
+    shapesEl.appendChild(b);
+    shapeButtons.set(s.id, b);
+  }
+
+  const modeButtons = new Map();
+  for (const m of DELAY_MODES) {
+    const b = document.createElement("button");
+    b.textContent = m.label;
+    b.addEventListener("click", () => handlers.onMode(m.id));
+    modesEl.appendChild(b);
+    modeButtons.set(m.id, b);
+  }
+
+  scrubEl.addEventListener("input", () => {
+    handlers.onScrub(Number(scrubEl.value) / 1000);
+  });
+
+  playEl.addEventListener("click", () => handlers.onPlayToggle());
+  autoTourEl.addEventListener("change", () => handlers.onAutoTour(autoTourEl.checked));
+
+  let scrubbing = false;
+  scrubEl.addEventListener("pointerdown", () => { scrubbing = true; });
+  const stop = () => { scrubbing = false; };
+  scrubEl.addEventListener("pointerup", stop);
+  scrubEl.addEventListener("pointercancel", stop);
+
+  return {
+    sync(state) {
+      for (const [id, b] of shapeButtons) {
+        b.classList.toggle("active", id === state.toId);
+        b.classList.toggle("queued", id === state.queued);
+      }
+      for (const [id, b] of modeButtons) {
+        b.classList.toggle("active", id === state.mode);
+      }
+
+      // 사용자가 슬라이더를 잡고 있는 동안에는 값을 덮어쓰지 않는다.
+      if (!scrubbing) scrubEl.value = String(Math.round(state.t * 1000));
+      scrubEl.disabled = !state.canScrub;
+
+      percentEl.textContent = Math.round(state.t * 100) + "%";
+      playEl.textContent = state.playing ? "❚❚" : "▶";
+      transitionEl.textContent = state.canScrub
+        ? labelOf(state.fromId) + " → " + labelOf(state.toId)
+        : labelOf(state.currentId);
+      autoTourEl.checked = state.autoTour;
+    },
+
+    setStats(count, fps) {
+      statCountEl.textContent = count.toLocaleString("ko-KR") + " 입자";
+      statFpsEl.textContent = fps > 0 ? Math.round(fps) + " fps" : "— fps";
+    },
+  };
+}
