@@ -24,7 +24,6 @@ const PRESETS = {
   // 원반의 두께가 사라져 평면 그림이 되므로 조금 눕힌다.
   galaxy: { theta: 0.4, phi: 0.62, radius: 6.4 },
   // 마스크 형상은 XY 평면에 서 있다. theta 0이 정면이다.
-  caring: { theta: 0.0, phi: 1.34, radius: 5.5 },
   hand: { theta: 0.0, phi: 1.30, radius: 5.5 },
   butterfly: { theta: 0.0, phi: 1.20, radius: 5.6 },
   // 지구는 아프리카·유럽이 정면에 오도록 경도를 맞춰 뒀다(EARTH_LON0).
